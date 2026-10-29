@@ -1,0 +1,37 @@
+{% extends "about_base.html" %}
+{% block title %}Credits · Commons Data Weaver{% endblock %}
+{% block doc %}
+<h1>Credits</h1>
+<p class="dw-lead">Commons Data Weaver stands on a lot of open work.</p>
+
+<h2>Built and maintained by</h2>
+<p><a href="{{ author_url }}" target="_blank" rel="noopener">{{ author }}</a> (<a href="https://orcid.org/{{ orcid }}" target="_blank" rel="noopener">ORCID</a>), for the Wikimedia Biodiversity Taskforce and Sahya Digital Conservation Foundation. DOI <a href="https://doi.org/{{ doi }}" target="_blank" rel="noopener">{{ doi }}</a>.</p>
+
+<h2>Wikimedia platform</h2>
+<ul>
+  <li><a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a> and <a href="https://www.wikidata.org/" target="_blank" rel="noopener">Wikidata</a>: the data, the APIs and the community that keeps them.</li>
+  <li><a href="https://toolforge.org/" target="_blank" rel="noopener">Wikimedia Toolforge</a> and the Wikimedia Cloud Services team: hosting.</li>
+  <li>Wikimedia OAuth: secure login without sharing passwords.</li>
+</ul>
+
+<h2>Software</h2>
+<table class="dw-table">
+  <tr><th>Project</th><th>Used for</th><th>Licence</th></tr>
+  <tr><td><a href="https://github.com/wikimedia/jquery.ime" target="_blank" rel="noopener">jQuery IME</a> by the Wikimedia Language Engineering team and contributors, with input methods contributed by many communities</td><td>Typing tools</td><td>GPL-3.0-or-later or MIT</td></tr>
+  <tr><td><a href="https://jquery.com/" target="_blank" rel="noopener">jQuery</a>, OpenJS Foundation</td><td>Required by jQuery IME</td><td>MIT</td></tr>
+  <tr><td><a href="https://flask.palletsprojects.com/" target="_blank" rel="noopener">Flask</a>, <a href="https://requests.readthedocs.io/" target="_blank" rel="noopener">Requests</a>, <a href="https://cryptography.io/" target="_blank" rel="noopener">cryptography</a>, <a href="https://gunicorn.org/" target="_blank" rel="noopener">gunicorn</a></td><td>Backend</td><td>BSD, Apache-2.0 / BSD, Apache-2.0 / BSD, MIT</td></tr>
+  <tr><td><a href="https://commons.wikimedia.org/wiki/Help:Gadget-ImageAnnotator" target="_blank" rel="noopener">ImageAnnotator</a> gadget by Lupo and contributors</td><td>The image note format</td><td>Multi-licensed</td></tr>
+</table>
+
+<h2>Ideas and data</h2>
+<ul>
+  <li><a href="https://commons.wikimedia.org/wiki/Help:Cat-a-lot" target="_blank" rel="noopener">Cat-a-lot</a>: click-to-select batch editing.</li>
+  <li><a href="https://www.inaturalist.org/" target="_blank" rel="noopener">iNaturalist</a>: the layout of species, place and map on an observation page.</li>
+  <li>© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>: map data; place search through Nominatim when you switch it on.</li>
+  <li>Logo on Commons: <a href="https://commons.wikimedia.org/wiki/File:DataWeaver.png" target="_blank" rel="noopener">File:DataWeaver.png</a>. The weave mark in this site's header is original artwork under the same licence as the code.</li>
+  <li>The Personality rights button follows the author's <em>PersonalityRightsHelper</em> user script.</li>
+</ul>
+
+<h2>Licence</h2>
+<p>Commons Data Weaver is free software: you can redistribute it and modify it under the terms of the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU General Public License</a> as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. It is distributed in the hope that it will be useful, but without any warranty. Full text: <a href="{{ git_url }}/blob/main/LICENSE" target="_blank" rel="noopener">LICENSE</a>.</p>
+{% endblock %}

@@ -1,0 +1,161 @@
+/* Commons Data Weaver — site styles (navigation, documentation pages, dialogs).
+   Copyright (C) 2026 Manoj Karingamadathil. GPL-3.0-or-later.
+   The tool's own interface styles live inside static/js/dataweaver.js (prefix .jv-). */
+
+:root {
+  --ink: #17302b;
+  --ink-2: #33524a;
+  --paper: #f3f6f4;
+  --surface: #ffffff;
+  --accent: #0b7a5a;
+  --accent-dark: #096449;
+  --muted: #5d7068;
+  --line: #cdd8d2;
+  --warn-bg: #fff4dc;
+  --warn-line: #c78500;
+  /* the four threads: depicts, categories, location, other versions */
+  --t-depicts: #4fd1a1;
+  --t-cats: #7fb0e8;
+  --t-loc: #ffc933;
+  --t-ver: #f2a07b;
+  --nav-h: 46px;
+  --sans: "Segoe UI", system-ui, -apple-system, "Noto Sans", "Noto Sans Malayalam", sans-serif;
+  --serif: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, "Noto Serif", serif;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 var(--sans); }
+a { color: var(--accent-dark); }
+a:hover { color: var(--ink); }
+:focus-visible { outline: 3px solid var(--t-loc); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+/* ---------------------------------------------------------------- navigation */
+.dw-nav {
+  position: sticky; top: 0; z-index: 9500; height: var(--nav-h);
+  display: flex; align-items: center; gap: 14px; padding: 0 14px;
+  background: var(--ink); color: #fff;
+}
+.dw-brand { display: flex; align-items: center; gap: 9px; color: #fff; text-decoration: none; font-weight: 700; font-size: 12.5px; line-height: 1.15; }
+.dw-brand:hover { color: #fff; }
+.dw-brand img { display: block; border-radius: 8px; }
+.dw-links { display: flex; gap: 2px; margin-left: 10px; }
+.dw-links a { color: #cfe3da; text-decoration: none; padding: 6px 11px; border-radius: 4px; }
+.dw-links a:hover { background: rgba(255, 255, 255, .1); color: #fff; }
+.dw-links a[aria-current="page"] { background: rgba(255, 255, 255, .16); color: #fff; }
+.dw-spacer { flex: 1; }
+.dw-user { display: flex; align-items: center; gap: 8px; }
+.dw-uname { color: #cfe3da; text-decoration: none; max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dw-uname:hover { color: #fff; text-decoration: underline; }
+.dw-icon-btn { background: transparent; border: 0; color: #cfe3da; padding: 6px; border-radius: 4px; cursor: pointer; display: inline-flex; font: inherit; }
+.dw-icon-btn:hover { background: rgba(255, 255, 255, .12); color: #fff; }
+.dw-modal .dw-icon-btn { color: var(--muted); }
+.dw-modal .dw-icon-btn:hover { background: #e4ebe7; color: var(--ink); }
+
+.dw-btn {
+  display: inline-block; font: inherit; padding: 6px 14px; border: 1px solid #b7c5bd; border-radius: 4px;
+  background: #fff; color: var(--ink); cursor: pointer; text-decoration: none; line-height: 1.3;
+}
+.dw-btn:hover { background: #e3f0ea; color: var(--ink); }
+.dw-btn-sm { padding: 3px 10px; font-size: 13px; }
+.dw-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.dw-btn-primary:hover { background: var(--accent-dark); color: #fff; }
+
+.dw-loginbar {
+  position: fixed; top: var(--nav-h); left: 0; right: 0; z-index: 9400; height: 38px;
+  display: flex; align-items: center; justify-content: center; gap: 12px; padding: 0 12px;
+  background: var(--warn-bg); border-bottom: 1px solid var(--warn-line); color: #5a3d00; font-size: 13.5px;
+}
+
+/* The tool fills the viewport below the navigation */
+body.dw-app { overflow: hidden; }
+body.dw-app #jv-root { top: var(--nav-h); }
+body.dw-app.dw-has-bar #jv-root { top: calc(var(--nav-h) + 38px); }
+body.dw-app .jv-single { top: var(--nav-h); }
+/* the navigation bar already carries the brand */
+body.dw-app .jv-brandw { display: none; }
+body.dw-app .jv-modal { z-index: 9800; }
+.dw-boot { position: fixed; inset: var(--nav-h) 0 0 0; display: grid; place-items: center; color: var(--muted); }
+.dw-noscript { max-width: 40rem; margin: 4rem auto; padding: 0 1rem; }
+
+/* ---------------------------------------------------------------- documentation pages */
+.dw-doc { max-width: 880px; margin: 0 auto; padding: 36px 20px 64px; }
+.dw-narrow { max-width: 640px; }
+.dw-doc h1 { font: 700 2.3rem/1.15 var(--sans); letter-spacing: -.02em; margin: 0 0 .4em; }
+.dw-doc h2 { font: 700 1.45rem/1.25 var(--sans); letter-spacing: -.01em; margin: 2.1em 0 .5em; padding-top: .3em; border-top: 2px solid var(--line); }
+.dw-doc h3 { font: 700 1.1rem/1.3 var(--sans); margin: 1.6em 0 .3em; color: var(--ink-2); }
+.dw-doc p, .dw-doc li { font: 1.06rem/1.65 var(--serif); max-width: 68ch; }
+.dw-doc li { margin: .25em 0; }
+.dw-doc ul, .dw-doc ol { padding-left: 1.3em; }
+.dw-doc code { font: .9em/1 ui-monospace, "Cascadia Mono", Consolas, monospace; background: #e4ebe7; padding: .12em .35em; border-radius: 3px; }
+.dw-doc pre { background: var(--ink); color: #e1efe8; padding: 14px 16px; border-radius: 4px; overflow: auto; font: 13px/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace; }
+.dw-doc pre code { background: none; padding: 0; font-size: inherit; }
+.dw-doc kbd { display: inline-block; min-width: 24px; text-align: center; border: 1px solid #b7c5bd; border-bottom-width: 2px; border-radius: 4px; background: #fff; padding: 0 6px; font: 600 12px ui-monospace, Consolas, monospace; }
+.dw-lead { font: 1.22rem/1.55 var(--serif); color: var(--ink-2); max-width: 60ch; }
+.dw-dim { color: var(--muted); }
+.dw-note { background: var(--warn-bg); border-left: 4px solid var(--warn-line); padding: 8px 14px; margin: 1.2em 0; max-width: 68ch; }
+.dw-note p { margin: .3em 0; }
+
+.dw-hero { background: var(--ink); color: #fff; }
+.dw-hero-in { max-width: 880px; margin: 0 auto; padding: 38px 20px 30px; display: flex; gap: 26px; align-items: center; }
+.dw-hero img { width: 112px; height: 112px; flex: none; border-radius: 22px; }
+.dw-hero h1 { color: #fff; margin: 0 0 .15em; font-size: 2.5rem; }
+.dw-hero p { font: 1.12rem/1.5 var(--serif); margin: .2em 0 .8em; color: #cfe3da; max-width: 52ch; }
+.dw-threads { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 0; margin: 0; list-style: none; font: 600 13.5px var(--sans); }
+.dw-threads li { display: flex; align-items: center; gap: 7px; font: inherit; margin: 0; }
+.dw-threads i { width: 26px; height: 7px; border-radius: 4px; display: inline-block; }
+.dw-tabs { background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: var(--nav-h); z-index: 50; }
+.dw-tabs-in { max-width: 880px; margin: 0 auto; padding: 0 12px; display: flex; gap: 2px; overflow-x: auto; }
+.dw-tabs a { padding: 11px 14px; text-decoration: none; color: var(--ink-2); white-space: nowrap; border-bottom: 3px solid transparent; }
+.dw-tabs a:hover { background: #eef3f0; }
+.dw-tabs a[aria-current="page"] { border-bottom-color: var(--accent); color: var(--ink); font-weight: 700; }
+
+.dw-facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 22px; margin: 1.2em 0; font: 1rem/1.5 var(--sans); }
+.dw-facts dt { color: var(--muted); }
+.dw-facts dd { margin: 0; }
+
+.dw-feature { display: grid; grid-template-columns: 6px 1fr; gap: 0 16px; margin: 1.4em 0; }
+.dw-feature::before { content: ""; border-radius: 3px; background: var(--c, var(--t-depicts)); grid-row: 1 / span 2; }
+.dw-feature h3 { margin: 0 0 .2em; }
+.dw-feature p, .dw-feature ul { margin: .2em 0; }
+.dw-table { border-collapse: collapse; width: 100%; font: .95rem/1.45 var(--sans); margin: 1em 0; }
+.dw-table th, .dw-table td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.dw-table th { color: var(--muted); font-weight: 600; }
+.dw-steps { counter-reset: s; list-style: none; padding: 0; }
+.dw-steps > li { counter-increment: s; position: relative; padding-left: 2.6em; margin: 1em 0; }
+.dw-steps > li::before { content: counter(s); position: absolute; left: 0; top: .05em; width: 1.9em; height: 1.9em; border-radius: 50%; background: var(--ink); color: #fff; display: grid; place-items: center; font: 700 .85rem var(--sans); }
+
+.dw-foot { max-width: 880px; margin: 0 auto; padding: 22px 20px 36px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; display: flex; justify-content: space-between; gap: 8px 24px; flex-wrap: wrap; }
+.dw-foot div:last-child { text-align: right; }
+
+/* ---------------------------------------------------------------- dialogs (settings, login) */
+.dw-modal { position: fixed; inset: 0; z-index: 20000; background: rgba(10, 25, 20, .55); display: flex; align-items: center; justify-content: center; padding: 12px; }
+.dw-modal-box { background: #fff; width: min(560px, 100%); max-height: 94vh; display: flex; flex-direction: column; border-radius: 6px; box-shadow: 0 12px 40px rgba(0, 0, 0, .35); }
+.dw-modal-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #eef2ef; border-radius: 6px 6px 0 0; }
+.dw-modal-head h2 { margin: 0; font: 700 1.1rem var(--sans); }
+.dw-modal-body { padding: 14px 16px; overflow: auto; }
+.dw-modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 14px; background: #eef2ef; border-radius: 0 0 6px 6px; }
+.dw-settings section { margin-bottom: 14px; }
+.dw-settings h3 { margin: 0 0 6px; font: 700 .95rem var(--sans); color: var(--accent-dark); }
+.dw-field { display: flex; flex-direction: column; gap: 3px; margin: 8px 0; }
+.dw-field label { font-weight: 600; }
+.dw-check label { font-weight: 400; }
+.dw-field select, .dw-try { font: inherit; padding: 5px 7px; border: 1px solid #b7c5bd; border-radius: 3px; background: #fff; color: var(--ink); width: 100%; }
+.dw-try { margin-top: 6px; }
+.dw-field small { font-size: 12.5px; }
+
+/* typing tools are off: hide the keyboard selectors jquery.ime may have left behind */
+body.dw-ime-off .imeselector, body.dw-ime-off .imeselector-menu { display: none !important; }
+.imeselector-menu, .imeselector { z-index: 21000; }
+
+@media (max-width: 720px) {
+  .dw-links a { padding: 6px 8px; }
+  .dw-brand span { display: none; }
+  .dw-hero-in { flex-direction: column; align-items: flex-start; }
+  .dw-doc h1, .dw-hero h1 { font-size: 1.9rem; }
+  .dw-foot div:last-child { text-align: left; }
+  .dw-facts { grid-template-columns: 1fr; gap: 0; }
+  .dw-facts dd { margin-bottom: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }

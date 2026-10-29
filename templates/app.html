@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Commons Data Weaver{% endblock %}
+{% block bodyclass %}dw-app{% endblock %}
+{% block content %}
+<div class="dw-boot" id="dw-boot">Loading Commons Data Weaver…</div>
+<noscript><div class="dw-noscript"><h1>JavaScript is required</h1>
+<p>Commons Data Weaver is an interactive tool and needs JavaScript. You can still read the <a href="/howto">usage guide</a> and <a href="/about">about page</a>.</p></div></noscript>
+{% endblock %}
+{% block footer %}{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dw-shim.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/dataweaver.js') }}" defer></script>
+{% endblock %}

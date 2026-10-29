@@ -1,0 +1,38 @@
+{% extends "about_base.html" %}
+{% block title %}About · Commons Data Weaver{% endblock %}
+{% block doc %}
+<h1>About</h1>
+<p class="dw-lead">Commons Data Weaver helps you improve the structured data of Wikimedia Commons files: what a file depicts, which categories it belongs to, where it was taken, and which other files show the same subject.</p>
+
+<dl class="dw-facts">
+  <dt>Author</dt><dd><a href="{{ author_url }}" target="_blank" rel="noopener">{{ author }}</a> (<a href="https://orcid.org/{{ orcid }}" target="_blank" rel="noopener">ORCID {{ orcid }}</a>)</dd>
+  <dt>Organisations</dt><dd>Wikimedia Biodiversity Taskforce, Sahya Digital Conservation Foundation</dd>
+  <dt>Version</dt><dd>{{ version }}</dd>
+  <dt>DOI</dt><dd><a href="https://doi.org/{{ doi }}" target="_blank" rel="noopener">{{ doi }}</a></dd>
+  <dt>Source code</dt><dd><a href="{{ git_url }}" target="_blank" rel="noopener">{{ git_url }}</a></dd>
+  <dt>Licence</dt><dd><a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU General Public License v3.0 or later</a></dd>
+  <dt>Hosting</dt><dd><a href="https://toolforge.org/" target="_blank" rel="noopener">Wikimedia Toolforge</a>, at <a href="{{ base_url }}">{{ base_url }}</a></dd>
+</dl>
+
+<h2>What it is</h2>
+<p>Many Commons files sit in a category with a good title but little structured data. Data Weaver loads a category, a list of file names or your own list page, shows the files in a grid, and lets you add what is missing, in bulk or one file at a time, then saves the changes to Commons under your own account.</p>
+<p>It was built for biodiversity work, where one field trip produces hundreds of photographs of a few species. Nothing in it is specific to biology: the same steps work for monuments, places, objects and events.</p>
+
+<h2>Four threads</h2>
+<ul>
+  <li><strong>Depicts</strong> (<a href="https://www.wikidata.org/wiki/Property:P180" target="_blank" rel="noopener">P180</a>): link the file to the Wikidata item for its subject.</li>
+  <li><strong>Categories</strong>: add or remove Commons categories, with suggestions taken from the Wikidata item's own Commons category.</li>
+  <li><strong>Location</strong>: pin coordinates on a map, or search a Wikidata place, and apply them to many files.</li>
+  <li><strong>Other versions</strong>: group photos of the same subject and list them in each file's Information template, so readers can find the rest of the series.</li>
+</ul>
+
+<h2>Where to go next</h2>
+<ul>
+  <li><a href="/howto">How to use</a> the tool, step by step.</li>
+  <li>The full list of <a href="/features">features</a> and the <a href="/technology">technology</a> behind them.</li>
+  <li>The <a href="/story">story and typical workflows</a>, the <a href="/community">community</a> page and the <a href="/credits">credits</a>.</li>
+</ul>
+
+<h2>Cite this tool</h2>
+<p>{{ author }}. <em>Commons Data Weaver</em> (version {{ version }}). Sahya Digital Conservation Foundation and Wikimedia Biodiversity Taskforce. DOI: <a href="https://doi.org/{{ doi }}" target="_blank" rel="noopener">{{ doi }}</a>. Source: <a href="{{ git_url }}" target="_blank" rel="noopener">{{ git_url }}</a>.</p>
+{% endblock %}

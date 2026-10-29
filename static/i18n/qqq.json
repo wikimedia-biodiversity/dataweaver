@@ -1,0 +1,43 @@
+{
+  "@metadata": {
+    "authors": [
+      "Manoj Karingamadathil"
+    ]
+  },
+  "nav-tool": "Navigation link to the Data Weaver tool itself.",
+  "nav-howto": "Navigation link to the usage guide.",
+  "nav-about": "Navigation link to the About section.",
+  "tab-about": "Tab label: overview of the project.",
+  "tab-features": "Tab label: list of features.",
+  "tab-technology": "Tab label: technology summary.",
+  "tab-story": "Tab label: the story behind the tool and typical workflows.",
+  "tab-community": "Tab label: community and contribution page.",
+  "tab-credits": "Tab label: credits and acknowledgements.",
+  "settings": "Tooltip of the gear button that opens the settings dialog.",
+  "login": "Button: log in with a Wikimedia account.",
+  "logout": "Button: log out.",
+  "close": "Button: close a dialog.",
+  "foot-built-pre": "Start of the footer sentence. Followed by the author's name, then a list of organisations.",
+  "loginbar-text": "Banner shown above the tool when the user is not logged in.",
+  "login-required-title": "Dialog title shown when the user tries to save without being logged in.",
+  "login-required-text": "Dialog text explaining that saving needs a Wikimedia account.",
+  "login-required-note": "Dialog note: the login opens in a new tab so no work is lost.",
+  "settings-title": "Title of the settings dialog.",
+  "settings-language": "Heading of the interface-language section.",
+  "settings-language-label": "Label of the language drop-down.",
+  "settings-language-help": "Help text under the language drop-down.",
+  "settings-typing": "Heading of the typing-tools section (input methods for writing in other scripts).",
+  "settings-typing-enable": "Checkbox label.",
+  "settings-typing-help": "Help text under the checkbox. jQuery IME and Universal Language Selector are product names.",
+  "settings-typing-language": "Label: the language you want to type in.",
+  "settings-typing-method": "Label: the keyboard layout or transliteration scheme.",
+  "settings-typing-try": "Placeholder of a text box where the user can test the selected input method.",
+  "settings-typing-loading": "Status text while input methods are loading.",
+  "settings-typing-ready": "Status text. $1 is the number of languages that have input methods.",
+  "settings-privacy": "Heading of the section with settings that send data to other services.",
+  "settings-osm": "Checkbox label. OpenStreetMap and Nominatim are product names.",
+  "settings-osm-help": "Privacy explanation under the OpenStreetMap checkbox.",
+  "settings-local-note": "Note: settings are saved in the browser, not on the server.",
+  "settings-reset": "Button: restore default settings.",
+  "@app": "Source-text translations for the tool's own interface. Each key is the exact English text shown in the tool, each value its translation. Only static labels match; text with counters or file names is left as is."
+}

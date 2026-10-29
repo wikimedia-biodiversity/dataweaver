@@ -1,0 +1,94 @@
+{% extends "about_base.html" %}
+{% block title %}Features · Commons Data Weaver{% endblock %}
+{% block doc %}
+<h1>Features</h1>
+<p class="dw-lead">What Commons Data Weaver does today, grouped by the four threads plus the tools around them.</p>
+
+<h2>Loading files</h2>
+<ul>
+  <li><strong>Category:</strong> type a category name and press <em>Load category</em>. Files directly in the category are loaded (not subcategories).</li>
+  <li><strong>CSV or list:</strong> paste or upload file names, one per line, or a CSV with a <code>filename</code>, <code>file</code>, <code>title</code> or <code>name</code> column. <code>File:</code> prefixes, underscores and full Commons URLs are accepted.</li>
+  <li><strong>My list:</strong> files named on <code>User:YourName/DataWeaver</code> (a gallery or a plain list; lines inside HTML comments are skipped) load automatically when you open the tool, and again with the <em>My list</em> button.</li>
+  <li><strong>Link to a category:</strong> <code>{{ base_url }}/?category=Fishes_of_Kerala</code> opens the tool and loads that category.</li>
+  <li>Everything is read first (file details, categories, captions in all languages, depicts), then the grid appears, with a progress bar.</li>
+</ul>
+
+<h2>Reviewing in the grid</h2>
+<ul>
+  <li>Five images per row. Click an image to select it; selected images turn blue and the selected count turns red. Shift-click selects a range.</li>
+  <li>Each card shows badges for depicts (with the names of the first two), location, unsaved changes, saved and error.</li>
+  <li><strong>Sort</strong> by filename, author, licence, observation date, upload date, camera, resolution, file size or starred, ascending or descending.</li>
+  <li><strong>Filter</strong> with live counts: missing or has depicts, missing or has location, missing or has category (ignoring or counting hidden categories), and unsaved depicts changes. A free-text filter searches names, authors, licences, cameras and captions.</li>
+  <li><strong>Stars</strong> mark photos for this session only. They can be sorted, grouped first or shown alone, and they are included in downloads.</li>
+  <li>Keyboard: <kbd>A</kbd> select all, <kbd>G</kbd> group, <kbd>U</kbd> ungroup, <kbd>Esc</kbd> clear selection, <kbd>←</kbd> <kbd>→</kbd> move between files, <kbd>?</kbd> help.</li>
+</ul>
+
+<div class="dw-feature" style="--c: var(--t-depicts)">
+  <h3>Depicts</h3>
+  <div>
+    <ul>
+      <li>Batch add or remove depicts (P180) for the selected files, found by searching Wikidata. Each result shows the item's image (P18) when it has one.</li>
+      <li>Subject suggestions include the Wikidata items (QID and label) that the file's or the selected files' Commons categories are linked to.</li>
+      <li>In the one-by-one view the depicts are highlighted at the top, with the caption and description beneath. A file without depicts is flagged so you can identify the subject.</li>
+      <li>The <em>Depicts overview</em> shows a word cloud and a frequency table of everything tagged so far; click a word to filter the grid to it, or download the table as CSV.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="dw-feature" style="--c: var(--t-cats)">
+  <h3>Categories</h3>
+  <div>
+    <ul>
+      <li>Category search combines several Commons searches, so partial names are found. If nothing matches you can press Enter to use the name as typed; a warning appears if that category does not exist yet.</li>
+      <li>After you pick a subject, the item's Commons category (P373), taxon name (P225) and label are checked against Commons and offered as one-click suggestions, or <em>Add all</em>.</li>
+      <li>Add or remove categories in bulk. Categories added by templates are shown but cannot be removed from the file page by this tool.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="dw-feature" style="--c: var(--t-loc)">
+  <h3>Location</h3>
+  <div>
+    <ul>
+      <li>Type coordinates, click a map to drop a pin, or search for a place on Wikidata. Search on OpenStreetMap is available if you switch it on in the settings.</li>
+      <li>Apply one location to all selected files, or set it per file. The map can be hidden.</li>
+      <li>Saved as a <code>{{ '{{Location}}' }}</code> template on the file page; an existing location template is updated in place.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="dw-feature" style="--c: var(--t-ver)">
+  <h3>Series and Other versions</h3>
+  <div>
+    <ul>
+      <li><strong>Series menu:</strong> grouped (manual), ungrouped (all files), automatic by time (same camera, shots within a set number of seconds) or automatic by file name. One menu switches between the grouped and ungrouped views.</li>
+      <li>A series shows one thumbnail and a photo count. Opening it shows a collage, where you add depicts and categories to the whole series or to the photos you select.</li>
+      <li>If photos in a series were uploaded by different users, a warning is shown on the card and in the collage, and manual grouping asks for confirmation.</li>
+      <li><strong>Other versions:</strong> add the other photos of a series to a file's Information template, after <code>Permission</code>, as a <code>&lt;gallery&gt;</code> with captions. A file cannot list itself. <em>Link all as Other versions</em> does this for every photo in the series at once.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>More on each file</h2>
+<ul>
+  <li><strong>Captions</strong> in every language can be edited; descriptions are shown read-only.</li>
+  <li><strong>Image notes:</strong> draw rectangles on the image and write notes in the format the ImageAnnotator gadget shows on the file page (needs an autoconfirmed account).</li>
+  <li><strong>Personality rights:</strong> a button on each file adds <code>{{ '{{Personality rights}}' }}</code> above the licence header, with a green or red ring showing whether it is already there.</li>
+  <li><strong>Batch panel:</strong> collapsible; select all, none, invert, starred; star, group, ungroup; batch depicts, categories and location; save selected or save all.</li>
+</ul>
+
+<h2>Saving and exporting</h2>
+<ul>
+  <li>Nothing is written until you save. Unsaved values are shown in red. Save one file, the selected files or everything; a summary dialog shows what will be written first.</li>
+  <li>Edit summaries read <em>Metadata updated with Commons Data Weaver via #DataWeaver</em>, plus the hashtag of the <strong>Project</strong> you choose (Bioregister, Folkland, Heritage or Wikivoyage).</li>
+  <li>The <strong>edit log</strong> at the bottom of the batch panel lists every edit of the session, with diff links and any errors.</li>
+  <li><strong>Download</strong> all, filtered, selected or starred files as JSON or CSV, including captions, descriptions, categories, depicts, location, series, other versions, annotations and the starred flag.</li>
+</ul>
+
+<h2>Web app only</h2>
+<ul>
+  <li><strong>Wikimedia login</strong> with OAuth 2.0: edits are made as you, and your password is never seen by this tool. You can start preparing edits before logging in; the login opens in a new tab so nothing is lost.</li>
+  <li><strong>Settings (gear):</strong> choose the interface language and set up typing tools (input methods for writing in other scripts, from <a href="https://github.com/wikimedia/jquery.ime" target="_blank" rel="noopener">jQuery IME</a>). See <a href="/technology">Technology</a> for how translations work.</li>
+  <li><strong>Privacy by default:</strong> third-party place search is off until you switch it on. See the <a href="/privacy">privacy note</a>.</li>
+</ul>
+{% endblock %}

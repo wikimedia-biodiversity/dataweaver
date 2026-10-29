@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}How to use · Commons Data Weaver{% endblock %}
+{% block content %}
+<main class="dw-doc">
+<h1>How to use Commons Data Weaver</h1>
+<p class="dw-lead">From opening a category to saving structured data, in ten steps. <a href="/">Open the tool</a> in another tab and follow along.</p>
+
+<ol class="dw-steps">
+  <li><h3>Log in</h3>
+    <p>Press <strong>Log in</strong> at the top right and allow Data Weaver to edit on your behalf. You can load files and prepare edits first; you only need to be logged in to save. The login opens in a new tab, so nothing in the tool tab is lost.</p></li>
+  <li><h3>Choose a project</h3>
+    <p>In the top bar, set <strong>Project</strong> to Bioregister, Folkland, Heritage or Wikivoyage. Your edit summaries then end with <code>#DataWeaver #Project</code>. Leave it empty to use only <code>#DataWeaver</code>. The choice is remembered in your browser.</p></li>
+  <li><h3>Load files</h3>
+    <p>Type a category name and press <strong>Load category</strong>; or press <strong>CSV / list…</strong> and paste file names; or create the page <code>User:YourName/DataWeaver</code> with one <code>File:</code> name per line and press <strong>My list</strong> (it loads by itself when the tool opens). Wait for the progress bar to finish: captions and depicts are read after the thumbnails appear.</p></li>
+  <li><h3>Find what needs work</h3>
+    <p>Use <strong>Filter</strong> to show files with missing depicts, location or category; the menu shows how many files each option leaves. Use <strong>Sort</strong> to order by name, author, licence, dates, camera, resolution or size. Mark favourites with ★; they stay for the session.</p></li>
+  <li><h3>Select and tag in bulk</h3>
+    <p>Click images to select them (blue border). <kbd>Shift</kbd>+click selects a range, <kbd>A</kbd> selects everything shown, <kbd>Esc</kbd> clears. In the <strong>Batch edit</strong> panel on the left, search a Wikidata item under <strong>Depicts</strong>, a Commons category under <strong>Categories</strong>, or enter or pin a <strong>Location</strong>, then press <strong>Add to selected</strong> or <strong>Apply to selected</strong>. The panel hides with the ⇔ button.</p></li>
+  <li><h3>Work one file at a time</h3>
+    <p>Press ⤢ on a card. At the top you see what the file depicts; if nothing, search the subject and pick the right Wikidata item. Suggested Commons categories appear below; add them with one click. Set the location on the map, edit captions, draw image notes, then <strong>Save &amp; next</strong>. Arrow keys move between files.</p></li>
+  <li><h3>Use series for similar photos</h3>
+    <p>Set <strong>Series</strong> to <em>Auto by time</em> or <em>Auto by file name</em> to get suggestions, or select photos and press <strong>Group</strong> (<kbd>G</kbd>). A series is one card with a count; press ⤢ to open a collage and tag the whole series. If the uploaders differ you will see a warning. <strong>Link all as Other versions</strong> lists the photos in each other's Information template.</p></li>
+  <li><h3>Check the overview</h3>
+    <p><strong>Depicts overview</strong> shows a word cloud and a frequency table of what is tagged. Click a word to filter the grid.</p></li>
+  <li><h3>Save</h3>
+    <p>Unsaved values are red. Press <strong>Save selected</strong> or <strong>Save all changes</strong>, read the summary dialog and confirm. The <strong>Edit log</strong> at the bottom of the left panel lists every edit with a diff link. Errors are shown on the card and in the log.</p></li>
+  <li><h3>Download and set up your preferences</h3>
+    <p>The <strong>Download</strong> menu exports all, filtered, selected or starred files as JSON or CSV. The gear in the top bar sets the <strong>interface language</strong> and <strong>typing tools</strong>: switch on input methods, choose a language and layout, and test it in the box. Press <kbd>Ctrl</kbd>+<kbd>M</kbd> in any field to toggle it.</p></li>
+</ol>
+
+<h2>Keyboard shortcuts</h2>
+<table class="dw-table">
+  <tr><td><kbd>A</kbd></td><td>Select all files in the open window (the grid, or an open series)</td></tr>
+  <tr><td><kbd>G</kbd> / <kbd>U</kbd></td><td>Group / ungroup the selected files</td></tr>
+  <tr><td><kbd>Esc</kbd></td><td>Clear the selection; press again to close an open series or file</td></tr>
+  <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Previous / next file in the one-by-one view</td></tr>
+  <tr><td><kbd>?</kbd></td><td>Show the shortcut list</td></tr>
+</table>
+<p class="dw-dim">Shortcuts are ignored while you are typing in a field.</p>
+
+<h2>Tips and troubleshooting</h2>
+<ul>
+  <li><strong>"Log in to save" appears.</strong> Log in in the new tab, then press Save again. Your edits are still there.</li>
+  <li><strong>Your login expired.</strong> The tool tells you and keeps your work; log in again and save.</li>
+  <li><strong>A file shows an error.</strong> Hover the red badge or open the Edit log. An edit conflict means someone changed the page meanwhile: save that file again.</li>
+  <li><strong>No place results from OpenStreetMap.</strong> It is off by default; switch it on in the gear settings. Wikidata places always work.</li>
+  <li><strong>A pop-up was blocked.</strong> Allow pop-ups for this site, or the login will open in this tab instead.</li>
+  <li><strong>Image notes are disabled.</strong> They need an autoconfirmed account.</li>
+  <li><strong>Large categories</strong> load in batches; use the filter or a CSV subset for big jobs, and review changes before saving.</li>
+</ul>
+</main>
+{% endblock %}

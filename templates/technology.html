@@ -1,0 +1,51 @@
+{% extends "about_base.html" %}
+{% block title %}Technology · Commons Data Weaver{% endblock %}
+{% block doc %}
+<h1>Technology</h1>
+<p class="dw-lead">A small Flask service that handles the Wikimedia login and edits, plus a browser interface written in plain JavaScript. Hosted on Wikimedia Toolforge.</p>
+
+<table class="dw-table">
+  <tr><th>Layer</th><th>Choice</th><th>Why</th></tr>
+  <tr><td>Hosting</td><td><a href="https://wikitech.wikimedia.org/wiki/Help:Toolforge" target="_blank" rel="noopener">Wikimedia Toolforge</a>, Build Service (Python buildpack) with gunicorn</td><td>Free hosting for Wikimedia community tools, close to the Wikimedia APIs, no server to maintain. The repository deploys from Git with one command.</td></tr>
+  <tr><td>Backend</td><td>Python 3 and Flask</td><td>Small and well supported on Toolforge. It does only three jobs: OAuth login, a write proxy and page rendering.</td></tr>
+  <tr><td>Login</td><td><a href="https://www.mediawiki.org/wiki/OAuth/For_Developers" target="_blank" rel="noopener">Wikimedia OAuth 2.0</a> (authorization code with PKCE, confidential client)</td><td>Edits are attributed to the logged-in user. Tokens stay on the server, encrypted at rest; the browser holds only a random session id cookie.</td></tr>
+  <tr><td>Interface</td><td>Plain JavaScript, no framework and no build step</td><td>The interface is the same code as the Commons user script, running on a thin compatibility layer. Any contributor can read it and fix it with a text editor.</td></tr>
+  <tr><td>Wikimedia APIs</td><td>MediaWiki Action API on Commons, the Wikibase API for Commons structured data (MediaInfo), and the Wikidata API</td><td>See below.</td></tr>
+  <tr><td>Localisation</td><td>JSON message files with MediaWiki-style <code>$1</code> placeholders and <code>qqq</code> documentation</td><td>The same format translators already know, ready for translatewiki.net.</td></tr>
+  <tr><td>Typing tools</td><td><a href="https://github.com/wikimedia/jquery.ime" target="_blank" rel="noopener">jQuery IME</a> with jQuery 3, served from this site</td><td>The input methods used across Wikimedia projects, loaded only when switched on.</td></tr>
+  <tr><td>Storage</td><td>SQLite for sessions; the browser's localStorage for settings, sessionStorage for stars</td><td>The server stores no file metadata. Everything you edit lives on Commons.</td></tr>
+  <tr><td>Quality</td><td>pytest for the backend, Playwright (headless Chromium) for the interface</td><td>Login, the write proxy's allow-list and the interface boot are tested without touching a real wiki.</td></tr>
+  <tr><td>Licence</td><td>GPL-3.0-or-later</td><td>jQuery IME is available under the GPL or MIT; jQuery is MIT.</td></tr>
+</table>
+
+<h2>How a save works</h2>
+<ol class="dw-steps">
+  <li><strong>Reading is direct.</strong> Your browser asks Commons and Wikidata for file lists, details, depicts and search results. These are public and need no login.</li>
+  <li><strong>Writing goes through Data Weaver.</strong> When you save, the browser sends the change to <code>/api/write</code>. The server checks the request, adds the edit token and your OAuth access token, and forwards it to Commons.</li>
+  <li><strong>The proxy is deliberately narrow.</strong> It accepts only <code>edit</code> (by page id), <code>wbeditentity</code> and <code>wbsetlabel</code> on file entities, drops every other parameter, rejects cross-origin requests, applies <code>maxlag</code>, limits edits per minute and makes sure the summary carries <code>#DataWeaver</code>.</li>
+  <li><strong>Sessions expire cleanly.</strong> Access tokens are refreshed automatically; if Wikimedia revokes access, the tool asks you to log in again and keeps your work.</li>
+</ol>
+
+<h2>Wikimedia APIs used</h2>
+<table class="dw-table">
+  <tr><th>API</th><th>Used for</th></tr>
+  <tr><td>Commons Action API: <code>query</code> with <code>categorymembers</code>, <code>imageinfo</code>, <code>categories</code>, <code>pageprops</code>, <code>templates</code>, <code>revisions</code>, <code>prefixsearch</code>, <code>allcategories</code>, <code>allimages</code>; <code>opensearch</code></td><td>Loading files, their metadata, categories and wikitext; category and file search; checking that categories exist.</td></tr>
+  <tr><td>Commons Action API: <code>edit</code></td><td>Categories, location, Other versions, image notes and the Personality rights template.</td></tr>
+  <tr><td>Wikibase on Commons: <code>wbgetentities</code>, <code>wbeditentity</code>, <code>wbsetlabel</code></td><td>Reading and writing depicts (P180) and captions on MediaInfo entities.</td></tr>
+  <tr><td>Wikidata: <code>wbsearchentities</code>, <code>wbgetentities</code></td><td>Subject search, labels and descriptions, images (P18), Commons category (P373), taxon name (P225), coordinates (P625).</td></tr>
+  <tr><td><code>Special:FilePath</code></td><td>Item images and the logo.</td></tr>
+  <tr><td>Wikimedia OAuth 2.0 on meta.wikimedia.org</td><td>Login, access tokens and the user profile.</td></tr>
+</table>
+
+<h2>Localisation and typing tools</h2>
+<p>The gear in the navigation bar opens the settings. The interface language is stored in your browser. Menus and dialogs come from <code>static/i18n/&lt;code&gt;.json</code>; the tool's own interface is translated by exact English text under the <code>@app</code> key, so a translator can add labels one at a time without touching any code. Anything not yet translated stays in English.</p>
+<p>Typing tools load jQuery IME on demand. After you choose a language and input method, every text field in the tool accepts it, including the subject and category search boxes. Press <kbd>Ctrl</kbd>+<kbd>M</kbd> to switch it off and on while typing.</p>
+
+<h2>Security and privacy choices</h2>
+<ul>
+  <li>Strict Content-Security-Policy: scripts run only from this site, with no inline scripts and no third-party scripts, styles or fonts.</li>
+  <li>Session cookie is <code>HttpOnly</code>, <code>Secure</code> and <code>SameSite=Lax</code>; writes also need a custom header and a matching origin.</li>
+  <li>OpenStreetMap place search is off by default because it sends typed text to a service outside Wikimedia.</li>
+</ul>
+<p>The source, deployment guide and tests are in the <a href="{{ git_url }}" target="_blank" rel="noopener">repository</a>.</p>
+{% endblock %}

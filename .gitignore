@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Local data and secrets: never commit these
+.env
+var/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Test artefacts
+tests/artifacts/

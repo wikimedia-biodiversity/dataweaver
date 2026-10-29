@@ -1,0 +1,23 @@
+{% extends "about_base.html" %}
+{% block title %}Privacy · Commons Data Weaver{% endblock %}
+{% block doc %}
+<h1>Privacy</h1>
+<p class="dw-lead">What Data Weaver stores, what it sends, and to whom.</p>
+
+<h2>What this server keeps</h2>
+<ul>
+  <li>After you log in: your Wikimedia username, your user groups, and the OAuth tokens, encrypted, tied to a random session id in a cookie. They are deleted when you log out and expire after about two weeks.</li>
+  <li>No analytics, no advertising and no tracking. The server stores none of the files, captions or categories you work on; that data stays on Commons and in your browser.</li>
+  <li>As on any Toolforge tool, Wikimedia may keep standard web server logs under the <a href="https://foundation.wikimedia.org/wiki/Policy:Privacy_policy" target="_blank" rel="noopener">Wikimedia Privacy Policy</a>.</li>
+</ul>
+
+<h2>What your browser sends elsewhere</h2>
+<ul>
+  <li><strong>Commons and Wikidata</strong> receive your searches and file requests directly from your browser, as they would from any visitor.</li>
+  <li><strong>Map tiles</strong> are loaded from the Wikimedia map server when you open a map.</li>
+  <li><strong>OpenStreetMap Nominatim</strong> (not run by Wikimedia) receives place names you type only if you switch on <em>Search places on OpenStreetMap</em> in the settings. It is off by default.</li>
+</ul>
+
+<h2>In your browser</h2>
+<p>Settings (language, typing tools, OpenStreetMap choice) are kept in your browser's local storage, and stars in session storage. Clear them in your browser, or use <em>Reset settings</em>.</p>
+{% endblock %}

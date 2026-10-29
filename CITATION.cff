@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use Commons Data Weaver, please cite it as below."
+title: "Commons Data Weaver"
+abstract: "A web tool for Wikimedia Commons that adds depicts (P180), categories, locations and links between similar files (Other versions), one file or a whole category at a time."
+type: software
+version: 1.0.0
+date-released: 2026-10-29
+doi: 10.5281/zenodo.23680559
+license: GPL-3.0-or-later
+repository-code: "https://github.com/wikimedia-biodiversity/dataweaver"
+url: "https://dataweaver.toolforge.org/"
+authors:
+  - family-names: Karingamadathil
+    given-names: Manoj
+    orcid: "https://orcid.org/0000-0003-3885-6595"
+    affiliation: "Sahya Digital Conservation Foundation; Wikimedia Biodiversity Taskforce"
+keywords:
+  - Wikimedia Commons
+  - Wikidata
+  - structured data
+  - depicts
+  - biodiversity
+  - Toolforge

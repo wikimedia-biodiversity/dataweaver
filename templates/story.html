@@ -1,0 +1,43 @@
+{% extends "about_base.html" %}
+{% block title %}Story and workflows · Commons Data Weaver{% endblock %}
+{% block doc %}
+<h1>Story and workflows</h1>
+<p class="dw-lead">From a pile of untagged photographs to files that Wikimedia Commons, Wikidata and search engines can understand.</p>
+
+<h2>Why it exists</h2>
+<p>A single field trip can add hundreds of photographs to Commons. Each one needs a species or subject, the right categories, a place and, ideally, a link to the other shots of the same animal or plant. Doing that file by file, across a file page, a structured-data tab and a category editor, is slow enough that much of it never happens.</p>
+<p>Data Weaver was started inside the Wikimedia Biodiversity Taskforce, which works on photographs from Keralam and the Western Ghats. Two things shaped it: the way <a href="https://www.inaturalist.org/" target="_blank" rel="noopener">iNaturalist</a> puts the species, place and map next to each observation, and the click-to-select speed of <a href="https://commons.wikimedia.org/wiki/Help:Cat-a-lot" target="_blank" rel="noopener">Cat-a-lot</a>. The idea was to bring both to Commons: see the whole set, select what belongs together, and describe it once.</p>
+<p>It began as a Commons user script. This web version, hosted on Toolforge with a Wikimedia login, gives the same interface to anyone with an account and no installation, and adds settings for interface language and typing in other scripts.</p>
+
+<h2>Principles</h2>
+<ul>
+  <li><strong>Nothing is saved until you say so.</strong> Changes are staged and shown in red, and a summary dialog appears before saving.</li>
+  <li><strong>Edits are yours.</strong> They are made under your account, with an edit summary that names the tool and the project.</li>
+  <li><strong>Structured data first.</strong> Depicts (P180) is treated as the main fact about a file; categories and location support it.</li>
+  <li><strong>Useful beyond biodiversity.</strong> The same steps work wherever Commons files lack structured data.</li>
+</ul>
+
+<h2>Workflow 1: tag a field trip</h2>
+<ol class="dw-steps">
+  <li>Load the trip's category, then sort by observation date.</li>
+  <li>Set <em>Series</em> to <em>Auto by time</em> so bursts of the same animal collapse into one card.</li>
+  <li>Open a series, search the species, and pick the Wikidata item. Accept the suggested Commons category.</li>
+  <li>Use <em>Link all as Other versions</em> so each photo points to its siblings.</li>
+  <li>Select everything from one site, pin the location once, and apply it.</li>
+  <li>Choose the project <em>Bioregister</em>, save, and check the edit log.</li>
+</ol>
+
+<h2>Workflow 2: find and fix what is missing</h2>
+<ol class="dw-steps">
+  <li>Load a large category, or list the files on <code>User:YourName/DataWeaver</code> and open the tool.</li>
+  <li>Set the filter to <em>Missing depicts</em> (or <em>Missing location</em>, <em>Missing category</em>); the menu shows how many files each filter will leave.</li>
+  <li>Press <kbd>A</kbd> to select all shown, add the subject or location they share, and repeat with a narrower filter or a different sort.</li>
+  <li>Open the <em>Depicts overview</em> to see what is already well covered and what is not.</li>
+</ol>
+
+<h2>Workflow 3: heritage, travel and folk culture</h2>
+<p>For a monument, a festival or a craft, the subject is usually a Wikidata item for the building, event or practice rather than a species. Search it in the same box, add the depicts, the matching category and the location, and group the photographs of the same site. Choose <em>Heritage</em>, <em>Wikivoyage</em> or <em>Folkland</em> so the edit summary shows which project the work belongs to.</p>
+
+<h2>Workflow 4: annotate and protect</h2>
+<p>In the one-by-one view, draw image notes on parts of a photograph, for example to label the species in a group shot. The Personality rights button adds the template to files that show recognisable people.</p>
+{% endblock %}

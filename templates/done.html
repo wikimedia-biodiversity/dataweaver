@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Logged in · Commons Data Weaver{% endblock %}
+{% block content %}
+<main class="dw-doc dw-narrow">
+  <h1>You are logged in</h1>
+  <p>This tab closes by itself. If it does not, close it and return to the Data Weaver tab: your work is exactly where you left it.</p>
+  <p><a class="dw-btn" href="/">Open the tool</a></p>
+</main>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/dw-done.js') }}" defer></script>{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "about_base.html" %}
+{% block title %}Community · Commons Data Weaver{% endblock %}
+{% block doc %}
+<h1>Community</h1>
+<p class="dw-lead">Data Weaver is a community tool. It is built in the open, and every kind of help is welcome.</p>
+
+<h2>Get help and report problems</h2>
+<ul>
+  <li>Open an issue in the <a href="{{ git_url }}/issues" target="_blank" rel="noopener">issue tracker</a>. Say what you did, what you expected and what happened, and include the browser and the file or category involved.</li>
+  <li>For questions about how to use the tool, start with <a href="/howto">How to use</a>.</li>
+  <li>The maintainer can also be reached through <a href="{{ author_url }}" target="_blank" rel="noopener">{{ author }}'s Meta user page</a>.</li>
+</ul>
+
+<h2>Contribute</h2>
+<ul>
+  <li><strong>Translate.</strong> Interface languages are JSON files in <code>static/i18n/</code>. Copy <code>en.json</code>, translate the values, add a line to <code>languages.json</code> and send a pull request. The <code>qqq.json</code> file explains each message. Translations of the tool's own labels go under the <code>@app</code> key, one English phrase at a time, so partial translations are welcome.</li>
+  <li><strong>Add input methods or fix typing.</strong> Typing tools come from <a href="https://github.com/wikimedia/jquery.ime" target="_blank" rel="noopener">jQuery IME</a>; input methods for your language belong there and benefit all of Wikimedia.</li>
+  <li><strong>Improve the code.</strong> See <code>CONTRIBUTING.md</code> in the repository for setup, tests and how the interface is generated from the user script.</li>
+  <li><strong>Try it on your own projects</strong> and tell us which workflow was hard. Real examples from Heritage, Wikivoyage, Folkland and biodiversity work shape what gets built next.</li>
+</ul>
+
+<h2>Working together</h2>
+<p>Everyone taking part is expected to follow the <a href="https://foundation.wikimedia.org/wiki/Policy:Universal_Code_of_Conduct" target="_blank" rel="noopener">Universal Code of Conduct</a>. Edits made with the tool are your own edits: please follow Commons' guidelines on licensing, personality rights and bulk changes, and review changes before saving.</p>
+
+<h2>Projects the tool is made for</h2>
+<ul>
+  <li><strong>Bioregister</strong>: biodiversity photographs and observations.</li>
+  <li><strong>Heritage</strong>: monuments, sites and cultural heritage.</li>
+  <li><strong>Wikivoyage</strong>: images for travel guides.</li>
+  <li><strong>Folkland</strong>: folk culture, crafts, festivals and traditions.</li>
+</ul>
+<p>Choosing a project adds its hashtag to your edit summaries so the community can find and review the work.</p>
+{% endblock %}

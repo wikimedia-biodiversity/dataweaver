@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Commons Data Weaver{% endblock %}</title>
+  <meta name="description" content="{% block description %}Commons Data Weaver weaves depicts, categories, locations and links between similar files into Wikimedia Commons, one file or a whole category at a time.{% endblock %}">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/logo.svg') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+  <script type="application/json" id="dw-config">{{ client_config|tojson }}</script>
+</head>
+<body class="{% block bodyclass %}{% endblock %}">
+  <header class="dw-nav">
+    <a class="dw-brand" href="/" title="Commons Data Weaver">
+      <img src="{{ url_for('static', filename='img/logo.svg') }}" width="34" height="34" alt="">
+      <span>Commons<br>Data Weaver</span>
+    </a>
+    <nav class="dw-links" aria-label="Main">
+      {% for path, key, label in nav %}
+      <a href="{{ path }}" data-i18n="{{ key }}"{% if active == path %} aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </nav>
+    <span class="dw-spacer"></span>
+    <button type="button" class="dw-icon-btn" id="dw-gear" data-i18n-title="settings" title="Settings" aria-haspopup="dialog">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M19.43 12.98c.04-.32.07-.65.07-.98s-.03-.66-.07-.98l2.11-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1a7.3 7.3 0 0 0-1.69-.98l-.38-2.65A.5.5 0 0 0 14 2h-4a.5.5 0 0 0-.49.42l-.38 2.65c-.61.25-1.17.58-1.69.98l-2.49-1a.5.5 0 0 0-.61.22l-2 3.46a.5.5 0 0 0 .12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.04.24.25.42.49.42h4c.24 0 .45-.18.49-.42l.38-2.65c.61-.25 1.17-.58 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46a.5.5 0 0 0-.12-.64l-2.11-1.65ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"/></svg>
+    </button>
+    <span class="dw-user" id="dw-user">
+      {% if me %}
+        <a href="https://commons.wikimedia.org/wiki/User:{{ me.username|replace(' ', '_')|urlencode }}" target="_blank" rel="noopener" class="dw-uname">{{ me.username }}</a>
+        <button type="button" class="dw-btn dw-btn-sm" id="dw-logout" data-i18n="logout">Log out</button>
+      {% else %}
+        <a class="dw-btn dw-btn-sm dw-btn-primary" id="dw-login" href="/login?next={{ request.path|urlencode }}" data-i18n="login">Log in</a>
+      {% endif %}
+    </span>
+  </header>
+
+  {% block content %}{% endblock %}
+
+  {% block footer %}
+  <footer class="dw-foot">
+    <div>
+      <span data-i18n="foot-built-pre">Commons Data Weaver, built and maintained by</span>
+      <a href="{{ author_url }}" target="_blank" rel="noopener">{{ author }}</a>,
+      Wikimedia Biodiversity Taskforce, Sahya Digital Conservation Foundation
+    </div>
+    <div>
+      <a href="{{ git_url }}" target="_blank" rel="noopener">Source</a> ·
+      GPL-3.0-or-later · <a href="https://doi.org/{{ doi }}" target="_blank" rel="noopener">DOI {{ doi }}</a> ·
+      <a href="/privacy">Privacy</a> · v{{ version }}
+    </div>
+  </footer>
+  {% endblock %}
+
+  <script src="{{ url_for('static', filename='js/dw-site.js') }}" defer></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

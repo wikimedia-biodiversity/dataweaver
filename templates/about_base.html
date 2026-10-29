@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block hero %}{% endblock %}
+{% block content %}
+<section class="dw-hero">
+  <div class="dw-hero-in">
+    <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" width="112" height="112">
+    <div>
+      <h1>Commons Data Weaver</h1>
+      <p>Weave depicts, categories, locations and links between similar files into Wikimedia Commons, one file or a whole category at a time.</p>
+      <ul class="dw-threads" aria-label="The four threads">
+        <li><i style="background: var(--t-depicts)"></i>Depicts</li>
+        <li><i style="background: var(--t-cats)"></i>Categories</li>
+        <li><i style="background: var(--t-loc)"></i>Location</li>
+        <li><i style="background: var(--t-ver)"></i>Other versions</li>
+      </ul>
+    </div>
+  </div>
+</section>
+<nav class="dw-tabs" aria-label="About sections">
+  <div class="dw-tabs-in">
+    {% for path, key, label in about_tabs %}
+    <a href="{{ path }}" data-i18n="{{ key }}"{% if tab == path %} aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </div>
+</nav>
+<main class="dw-doc">
+  {% block doc %}{% endblock %}
+</main>
+{% endblock %}
