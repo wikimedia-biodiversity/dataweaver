@@ -314,7 +314,7 @@ def test_failed_thumbnail_is_retried_then_shows_a_retry_button(stack):
         if calls["n"] <= 2:
             return route.fulfill(status=429, body="busy")
         return route.fulfill(status=200, content_type="image/png", body=e2e.PNG)
-    ctx.route(re.compile(r"https://upload\.wikimedia\.org/thumb/101\.jpg.*"), flaky)
+    ctx.route(re.compile(r"https://thumb\.wikimedia\.org/thumb/101\.jpg.*"), flaky)
     page.goto(stack["base"] + "/")
     load_category(page)
     for _ in range(60):                                 # no string-eval under the page's strict CSP: poll with a function
@@ -325,7 +325,7 @@ def test_failed_thumbnail_is_retried_then_shows_a_retry_button(stack):
     ctx.close()
 
     ctx, page, problems = new_page(stack, logged_in=False)                # always failing: grey tile and a button
-    ctx.route(re.compile(r"https://upload\.wikimedia\.org/thumb/101\.jpg.*"), lambda r: r.fulfill(status=500, body="no"))
+    ctx.route(re.compile(r"https://thumb\.wikimedia\.org/thumb/101\.jpg.*"), lambda r: r.fulfill(status=500, body="no"))
     ctx.route(re.compile(r".*/Special:FilePath/.*width=360.*"), lambda r: r.fulfill(status=500, body="no"))
     page.goto(stack["base"] + "/")
     load_category(page)
@@ -363,7 +363,7 @@ def test_camera_filter_keys_beside_gear_one_line_toolbar_credit_line(stack):
     # credit line: version and the Phabricator link
     credit = page.locator(".jv-credit")
     assert "v1.1.0" in credit.inner_text()
-    assert credit.locator("a", has_text="Phabricator").get_attribute("href") == "https://phabricator.wikimedia.org/project/board/9174/"
+    assert credit.locator("a", has_text="Phabricator").count() == 0          # no Phabricator link on the tool page itself
     assert credit.locator("a", has_text="DOI").get_attribute("href") == "https://doi.org/10.5281/zenodo.23680558"
     page.goto(stack["base"] + "/about")
     assert "10.5281/zenodo.23680558" in page.content() and "project/board/9174" in page.content()
@@ -393,8 +393,12 @@ def test_location_can_be_hidden_and_campaign_category_is_locked(stack):
     lock = page.locator(".jv-pinned .jv-chip.lock")
     expect(lock).to_have_count(1)
     assert lock.locator("button").count() == 1 and "🔒" in lock.inner_text()
+    page.evaluate("() => { DW.core.S.cur.pend.addC.add('Uploaded via Campaign:wlo_2026'); }")
+    page.keyboard.press("Escape"); open_single(page, 1)
+    expect(page.locator(".jv-pinned .jv-chip.lock")).to_have_count(2)       # "Uploaded via Campaign:…" is locked too
+    lock = page.locator(".jv-pinned .jv-chip.lock").first
     lock.locator("button").first.click()
-    assert page.locator(".jv-pinned .jv-chip.lock button").count() == 2
+    assert page.locator(".jv-pinned .jv-chip.lock button").count() == 4
     assert not problems, problems
     ctx.close()
 
@@ -410,4 +414,21 @@ def test_project_from_list_headings_sets_summary_and_help(stack):
     out = page.evaluate("""() => { const r = DW.core.S.recs[0]; r.proj = 'Wiki Village'; return [DW.core.sumTail(r), DW.core.helpCat(r)]; }""")
     assert out[0].endswith("#DataWeaver #WikiVillage"), out
     assert not problems, problems
+    ctx.close()
+
+
+def test_thumbnails_from_thumb_wikimedia_org_are_allowed_by_the_security_policy_and_load(stack):
+    ctx, page, problems = new_page(stack, logged_in=False)
+    page.goto(stack["base"] + "/")
+    load_category(page)
+    src = page.locator(".jv-card img").first.get_attribute("src")
+    assert src.startswith("https://thumb.wikimedia.org/"), src
+    for _ in range(40):                                                   # the strict CSP must not block the thumbnail host
+        if page.evaluate("() => document.querySelector('.jv-card img').naturalWidth") > 0:
+            break
+        page.wait_for_timeout(250)
+    assert page.evaluate("() => document.querySelector('.jv-card img').naturalWidth") > 0
+    assert page.locator(".jv-retry").count() == 0
+    # it loaded from the thumbnail host itself, not through the retry fallback
+    assert page.locator(".jv-card img").first.get_attribute("src").startswith("https://thumb.wikimedia.org/")
     ctx.close()

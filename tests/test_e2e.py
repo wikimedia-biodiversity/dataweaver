@@ -26,7 +26,7 @@ WIKITEXT = ("=={{int:filedesc}}==\n{{Information\n|description={{en|1=A fish}}\n
 
 def imageinfo(n, title, when):
     return {"pageid": n, "title": title, "categories": [{"title": "Category:Fishes of Kerala"}], "imageinfo": [{
-        "url": "https://upload.wikimedia.org/full/%d.jpg" % n, "thumburl": "https://upload.wikimedia.org/thumb/%d.jpg" % n,
+        "url": "https://upload.wikimedia.org/full/%d.jpg" % n, "thumburl": "https://thumb.wikimedia.org/thumb/%d.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail" % n,
         "descriptionurl": "https://commons.wikimedia.org/wiki/" + title.replace(" ", "_"), "width": 4000, "height": 3000, "size": 5000000,
         "timestamp": "2026-10-03T10:00:00Z", "user": "Anna", "mime": "image/jpeg",
         "commonmetadata": [{"name": "Make", "value": "Nikon"}, {"name": "Model", "value": "D850"}],

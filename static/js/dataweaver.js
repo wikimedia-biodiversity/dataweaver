@@ -843,7 +843,7 @@ function setOtherVersions(t, ov) {
   return before + (/\n$/.test(before) ? '' : '\n') + '| Other versions = ' + gal + '\n' + t.slice(at);
 }
 /* otherversions:end */
-const PHAB_URL = 'https://phabricator.wikimedia.org/project/board/9174/', DOI_URL = 'https://doi.org/10.5281/zenodo.23680558';
+const DOI_URL = 'https://doi.org/10.5281/zenodo.23680558';
 const ME_URL = 'https://meta.wikimedia.org/wiki/User:Manojk';
 const LOGO = 'https://commons.wikimedia.org/wiki/Special:FilePath/DataWeaver.png?width=96';
 /* Edit summary tag (MediaWiki summaries are single-line) */
@@ -1164,7 +1164,7 @@ function imgBar(r) {
     h('a', { href: r.url, target: '_blank', rel: 'noopener' }, 'Open on Commons'));
 }
 
-const isCampCat = n => (S.srcCat && normCat(S.srcCat) === n) || /\b(Wiki Loves|Images from|Media from|Wikipedia Asian Month)\b/i.test(n);
+const isCampCat = n => (S.srcCat && normCat(S.srcCat) === n) || /^Uploaded via Campaign:/i.test(n) || /\b(Wiki Loves|Images from|Media from|Wikipedia Asian Month)\b/i.test(n);
 function renderSingle(keepScroll) {
   const r = S.cur, eff = effDepicts(r), pc = pendCount(r), pref = capLangs(), multi = pref.length > 1;
   const keep = {};
@@ -1474,8 +1474,7 @@ const panel = h('aside', { class: 'jv-panel' }, h('div', { class: 'jv-pbody' },
     h('button', { class: 'jv-primary', onclick: () => confirmSave(S.recs) }, 'Save all changes'))), logWrap);
 const main = h('div', { class: 'jv-main collapsed' }, panel, h('div', { class: 'jv-gridwrap' }, grid));
 root.append(top, tools, main, h('div', { class: 'jv-status' }, statusMsg, bar, stats),
-  h('div', { class: 'jv-credit' }, h('span', {}, '© Commons Data Weaver, 2026 · ', h('b', {}, 'v' + ((window.DW && DW.config && DW.config.version) || '1.1.0')), ' · ',
-      h('a', { href: PHAB_URL, target: '_blank', rel: 'noopener', title: 'Report a bug or ask for a feature on Phabricator' }, 'Phabricator'), ' · ', h('a', { href: DOI_URL, target: '_blank', rel: 'noopener', title: 'Cite this tool' }, 'DOI')),
+  h('div', { class: 'jv-credit' }, h('span', {}, '© Commons Data Weaver, 2026 · ', h('b', {}, 'v' + ((window.DW && DW.config && DW.config.version) || '1.1.0')), ' · ', h('a', { href: DOI_URL, target: '_blank', rel: 'noopener', title: 'Cite this tool' }, 'DOI')),
     h('span', {}, 'built and maintained by ', h('a', { href: ME_URL, target: '_blank' }, 'Manoj Karingamadathil'), ', Wikimedia Biodiversity Taskforce, Sahya Digital Conservation Foundation')));
 document.body.append(root);
 { const gear = document.getElementById('dw-gear'); gear && gear.parentNode ? gear.before(keysBtn) : tools.insertBefore(keysBtn, tools.lastChild); }   // Keys sits beside the gear

@@ -45,7 +45,7 @@ def imageinfo_page(r):
     if r["lat"] is not None:
         em["GPSLatitude"] = {"value": str(r["lat"])}; em["GPSLongitude"] = {"value": str(r["lon"])}
     return {"pageid": r["id"], "title": r["title"], "categories": [{"title": "Category:" + CATEGORY}], "imageinfo": [{
-        "url": "https://upload.wikimedia.org/full/%d.jpg" % r["id"], "thumburl": "https://upload.wikimedia.org/thumb/%d.jpg" % r["id"],
+        "url": "https://upload.wikimedia.org/full/%d.jpg" % r["id"], "thumburl": "https://thumb.wikimedia.org/thumb/%d.jpg" % r["id"],
         "descriptionurl": "https://commons.wikimedia.org/wiki/" + r["title"].replace(" ", "_"), "width": r["w"], "height": r["h"], "size": r["bytes"],
         "timestamp": r["ts"], "user": r["user"], "mime": "image/jpeg",
         "commonmetadata": [{"name": "Make", "value": r["make"]}, {"name": "Model", "value": r["model"]}], "extmetadata": em}]}

@@ -267,4 +267,5 @@ def test_write_rate_limit(tmp_path, wiki):
 def test_security_headers(client):
     r = client.get("/healthz")
     assert r.status_code == 200
+    assert "https://thumb.wikimedia.org" in r.headers["Content-Security-Policy"] and "https://upload.wikimedia.org" in r.headers["Content-Security-Policy"]
     assert "script-src 'self'" in r.headers["Content-Security-Policy"] and r.headers["X-Content-Type-Options"] == "nosniff"

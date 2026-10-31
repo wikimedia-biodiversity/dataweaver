@@ -39,7 +39,7 @@ def files_response(params):
         pages = {}
         for i, n in enumerate(NAMES):
             p = imageinfo(200 + i, "File:%s.jpg" % n, "2026-10-02 02:%02d:00" % (50 + i))
-            p["imageinfo"][0]["thumburl"] = "https://upload.wikimedia.org/thumb/%d.jpg" % i
+            p["imageinfo"][0]["thumburl"] = "https://thumb.wikimedia.org/thumb/%d.jpg" % i
             pages[str(200 + i)] = p
         return {"query": {"pages": pages}}
     if params.get("action") == "wbgetentities" and params.get("ids", "").startswith("M"):

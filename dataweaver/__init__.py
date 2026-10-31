@@ -33,7 +33,7 @@ def create_app(overrides=None):
         "default-src 'self'",
         "script-src 'self'",
         "style-src 'self' 'unsafe-inline'",  # the interface injects its stylesheet at runtime
-        "img-src 'self' data: blob: https://commons.wikimedia.org https://upload.wikimedia.org %s" % tiles_origin,
+        "img-src 'self' data: blob: https://commons.wikimedia.org https://upload.wikimedia.org https://thumb.wikimedia.org %s" % tiles_origin,  # thumbnails now come from thumb.wikimedia.org
         "connect-src 'self' https://commons.wikimedia.org https://www.wikidata.org %s" % nominatim_origin,
         "font-src 'self'",
         "frame-ancestors 'none'",
