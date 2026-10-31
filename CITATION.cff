@@ -5,7 +5,7 @@ abstract: "A web tool for Wikimedia Commons that adds depicts (P180), categories
 type: software
 version: 1.1.0
 date-released: 2026-10-30
-doi: 10.5281/zenodo.23680559
+doi: 10.5281/zenodo.23680558
 license: GPL-3.0-or-later
 repository-code: "https://github.com/wikimedia-biodiversity/dataweaver"
 url: "https://dataweaver.toolforge.org/"

@@ -28,7 +28,7 @@ def test_page_renders_with_required_chrome(client, path):
 
 def test_about_has_author_doi_git_and_licence(client):
     html = client.get("/about").get_data(as_text=True)
-    for needle in ("10.5281/zenodo.23680559", "github.com/wikimedia-biodiversity/dataweaver", "User:Manojk", "GNU General Public License v3.0"):
+    for needle in ("10.5281/zenodo.23680558", "github.com/wikimedia-biodiversity/dataweaver", "User:Manojk", "GNU General Public License v3.0"):
         assert needle in html
 
 

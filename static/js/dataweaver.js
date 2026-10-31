@@ -2,7 +2,7 @@
  * Commons Data Weaver — web application interface (https://dataweaver.toolforge.org/)
  * Source: https://github.com/wikimedia-biodiversity/dataweaver
  * Copyright (C) 2026 Manoj Karingamadathil (https://meta.wikimedia.org/wiki/User:Manojk, ORCID 0000-0003-3885-6595)
- * DOI: 10.5281/zenodo.23680559
+ * DOI: 10.5281/zenodo.23680558
  * License: GPL-3.0-or-later (see LICENSE)
  *
  * Version 1.1.0. Started as the Commons Data Weaver user script and runs on the MediaWiki helpers
@@ -66,13 +66,13 @@ function ensureImg(ids) {
 const imgUrl = (f, w) => 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(f) + '?width=' + w;
 function wdThumb(id, w, cls) {
   const box = h('span', { class: 'jv-wdt' + (cls ? ' ' + cls : '') });
-  const fill = () => { if (IMG[id]) { box.append(h('img', { src: imgUrl(IMG[id], w || 80), alt: '', loading: 'lazy', title: IMG[id] })); box.classList.add('on'); } };
+  const fill = () => { if (IMG[id]) { box.append(h('img', { src: imgUrl(IMG[id], w || 80), alt: '', loading: 'lazy', title: IMG[id], referrerpolicy: 'no-referrer' })); box.classList.add('on'); } };
   IMG[id] !== undefined ? fill() : ensureImg([id]).then(fill);
   return box;
 }
 const S = { recs: [], view: [], sel: new Set(), last: null, sort: 'name', dir: 1, groupStar: false,
   fText: '', fStar: false, fDep: 'all', bDep: [], bCat: [], cur: null, stars: new Set(), log: [], hideMap: false, annOn: false, activeNote: null, groups: {}, gmode: 'manual', gsec: 60, gMsg: null, project: '',
-  fLoc: 'all', fCat: 'all', hidCats: false, gAct: null };
+  fLoc: 'all', fCat: 'all', fCam: 'all', hidCats: false, gAct: null };
 /* Projects and their "help needed" categories are maintained in static/config/projects.json (loaded below).
    These names are only the fallback if that file cannot be read. */
 let PROJ = [['Bioregister', ''], ['Folkland', ''], ['Heritage', ''], ['Wiki Village', 'WikiVillage']].map(a => ({ name: a[0], tag: a[1] || a[0], helpCategory: a[0] + ' (Maintenance)' }));
@@ -84,8 +84,10 @@ try {
   if (v.size === 'orig' || /^\d{3,4}$/.test(v.size || '')) S.imgSize = v.size;
   if (v.fit === 'width') S.imgFit = 'width';
 } catch (e) {}
-const projCfg = () => PROJ.find(p => p.name === S.project);
-const helpCat = () => { const p = projCfg(); return p && p.helpCategory ? normCat(p.helpCategory) : ''; };
+/* A file can carry its own project (from a "== Folkland ==" heading in your list page); otherwise the Project menu applies. */
+const projName = r => (r && r.proj) || S.project;
+const projCfg = r => PROJ.find(p => p.name === projName(r));
+const helpCat = r => { const p = projCfg(r); return p && p.helpCategory ? normCat(p.helpCategory) : ''; };
 try { JSON.parse(sessionStorage.getItem('dataweaver-stars') || '[]').forEach(t => S.stars.add(t)); } catch (e) {}
 const isStar = r => S.stars.has(r.title);
 function toggleStar(r) {
@@ -94,18 +96,18 @@ function toggleStar(r) {
   refreshCard(r); updateStats();
 }
 /* Help needed / problematic file: stages the project's "help" category (undoable, saved with the other changes). */
-const isHelp = r => { const c = helpCat(); return !!c && effCats(r).some(x => x.n === c); };
+const isHelp = r => { const c = helpCat(r); return !!c && effCats(r).some(x => x.n === c); };
 function toggleHelp(r) {
-  if (!S.project) return setStatus('Choose a project first: the Help button adds that project’s “help needed” category.');
-  const c = helpCat();
-  if (!c) return setStatus('Project ' + S.project + ' has no help category yet. Add it to static/config/projects.json.');
+  if (!projName(r)) return setStatus('Choose a project first: the Help button adds that project’s “help needed” category.');
+  const c = helpCat(r);
+  if (!c) return setStatus('Project ' + projName(r) + ' has no help category yet. Add it to static/config/projects.json.');
   isHelp(r) ? removeCat(r, c) : addCat(r, c);
   refreshCard(r); updateStats();
   setStatus((isHelp(r) ? 'Flagged ' : 'Un-flagged ') + r.name + ' (' + c + ') — not saved yet.');
 }
-const helpTip = r => !S.project ? '' : !helpCat() ? 'No help category is set for ' + S.project + ' yet (static/config/projects.json)'
-  : isHelp(r) ? 'Flagged: in Category:' + helpCat() + '. Click to remove (H)' : 'Needs help / problematic file: adds Category:' + helpCat() + ' (H)';
-function paintHelp(b, r) { b.className = 'jv-help' + (isHelp(r) ? ' on' : '') + (helpCat() ? '' : ' off'); b.title = helpTip(r); }
+const helpTip = r => !projName(r) ? '' : !helpCat(r) ? 'No help category is set for ' + projName(r) + ' yet (static/config/projects.json)'
+  : isHelp(r) ? 'Flagged: in Category:' + helpCat(r) + '. Click to remove (H)' : 'Needs help / problematic file: adds Category:' + helpCat(r) + ' (H)';
+function paintHelp(b, r) { b.className = 'jv-help' + (isHelp(r) ? ' on' : '') + (helpCat(r) ? '' : ' off'); b.title = helpTip(r); }
 function mkHelp(r, after) {
   const b = h('div', { onclick: e => { e.stopPropagation(); toggleHelp(r); if (after) after(); } }, '⚑');
   paintHelp(b, r); return b;
@@ -140,7 +142,7 @@ async function addPR(r) {
   if (r.pr === true) return setStatus('{{Personality rights}} is already on ' + r.name + '.');
   if (r.prBusy) return;
   r.prBusy = true; refreshCard(r);
-  const summary = 'Adding ' + PR_TPL + ' using [[User:Manojk/PersonalityRightsHelper.js|PersonalityRightsHelper]] via Commons Data Weaver #DataWeaver' + projTag();
+  const summary = 'Adding ' + PR_TPL + ' using [[User:Manojk/PersonalityRightsHelper.js|PersonalityRightsHelper]] via Commons Data Weaver #DataWeaver' + projTag(r);
   try {
     const t = await getText(r);
     if (PR_TEMPLATE_RE.test(t)) r.pr = true;
@@ -170,6 +172,26 @@ function parseWikiList(text) {
   }));
   return out;
 }
+/* A heading such as  == Folkland ==  above a gallery or list names the project of the files below it
+   (a deeper heading, === Batch 1 ===, keeps it). Headings that match no project end it. */
+const projKey = t => String(t || '').toLowerCase().replace(/[\s_-]+/g, '');
+function parseListProjects(text) {
+  const map = {}, seen = new Set(); let cur = null, lvl = 0;
+  String(text || '').replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/).forEach(line => {
+    const m = /^\s*(={2,6})\s*(.+?)\s*\1\s*$/.exec(line);
+    if (m) {
+      const hit = PROJ.find(p => projKey(p.name) === projKey(m[2]) || projKey(p.tag) === projKey(m[2]));
+      if (hit) { cur = hit.name; lvl = m[1].length; } else if (cur && m[1].length <= lvl) cur = null;
+      return;
+    }
+    (line.match(/(?:File|Image)\s*:[^\]|\n<>{}]+/gi) || []).forEach(x => {
+      try { x = decodeURIComponent(x); } catch (e) {}
+      const t = 'File:' + x.replace(/^(?:File|Image)\s*:/i, '').replace(/_/g, ' ').trim();
+      if (cur && !seen.has(t)) { seen.add(t); map[t] = cur; }
+    });
+  });
+  return map;
+}
 async function loadMyList() {
   if (!MYLIST) return setStatus('Log in to use your file list (User:<you>/DataWeaver).');
   setStatus('Reading ' + MYLIST + '…');
@@ -181,7 +203,11 @@ async function loadMyList() {
   if (text == null) return setStatus('Tip: create ' + MYLIST + ' with one file per line (File:Example.jpg) and it will load here automatically.');
   const titles = parseWikiList(text);
   if (!titles.length) return setStatus(MYLIST + ' has no File: names yet.');
-  await loadTitles(titles, 'mylist');
+  const pm = parseListProjects(text);
+  await loadTitles(titles, 'mylist', false, pm);
+  const cnt = {}; S.recs.forEach(r => { if (r.proj) cnt[r.proj] = (cnt[r.proj] || 0) + 1; });
+  const sum = Object.keys(cnt).map(k => k + ' ' + cnt[k]).join(', ');
+  if (sum) { setStatus('Loaded ' + S.recs.length + ' files from your list. Projects from its headings: ' + sum + '. Edit summaries and Help use each file’s project.', 1); applyProject(); }
 }
 
 /* ---------- pending-change model ---------- */
@@ -407,14 +433,14 @@ async function loadMediainfo(recs) {
   await ensureWd(recs.flatMap(r => r.depicts.map(d => d.id)));
   recs.forEach(refreshCard);
 }
-async function loadTitles(titles, source, isCategory) {
+async function loadTitles(titles, source, isCategory, projMap) {
   titles = [...new Set(titles)];
   if (!titles.length) return setStatus('Nothing to load.');
   if (source) { S.source = source; S.srcCat = isCategory ? source : ''; }
   S.recs = []; S.sel.clear(); S.last = null; grid.innerHTML = '';
   for (let i = 0; i < titles.length; i += 50) {
     try {
-      (await fetchBatch(titles.slice(i, i + 50))).filter(p => !p.missing && p.ii).forEach(p => S.recs.push(mkRec(p)));
+      (await fetchBatch(titles.slice(i, i + 50))).filter(p => !p.missing && p.ii).forEach(p => { const rec = mkRec(p); if (projMap && projMap[rec.title]) rec.proj = projMap[rec.title]; S.recs.push(rec); });
     } catch (e) { setStatus('Load error: ' + e); }
     setStatus('Loading file details… ' + Math.min(i + 50, titles.length) + '/' + titles.length, (i + 50) / titles.length);
   }
@@ -436,12 +462,13 @@ const depFilter = r => {
   return f === 'all' || (f === 'missing' ? !e.length : f === 'has' ? e.length > 0 : f === 'unsaved' ? (r.pend.addD.size || r.pend.remD.size) > 0 : e.includes(f));
 };
 const visCats = r => effCats(r).filter(c => S.hidCats || !c.hidden);
+const camFilter = r => S.fCam === 'all' || (S.fCam === 'missing' ? !r.camera : !!r.camera);
 const locFilter = r => S.fLoc === 'all' || (S.fLoc === 'missing' ? !effLoc(r) : !!effLoc(r));
 const catFilter = r => S.fCat === 'all' || (S.fCat === 'missing' ? !visCats(r).length : visCats(r).length > 0);
 function getView() {
   const t = S.fText.toLowerCase(), f = SORT[S.sort];
   return S.recs.filter(r => (!t || (r.name + ' ' + r.author + ' ' + r.license + ' ' + r.camera + ' ' + Object.values(r.caps).join(' ')).toLowerCase().includes(t))
-    && (!S.fStar || (S.fStar === 'not' ? !isStar(r) : isStar(r))) && depFilter(r) && locFilter(r) && catFilter(r))
+    && (!S.fStar || (S.fStar === 'not' ? !isStar(r) : isStar(r))) && depFilter(r) && locFilter(r) && catFilter(r) && camFilter(r))
     .sort((a, b) => { const x = f(a), y = f(b); return (x < y ? -1 : x > y ? 1 : 0) * S.dir; });
 }
 /* Thumbnails come from Wikimedia's thumbnail service, which makes a size when it is first asked for and can answer
@@ -449,13 +476,13 @@ function getView() {
    then replaced by a grey tile with a ↻ button, so a busy moment never leaves a permanent blank. */
 const NO_THUMB = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="240" height="160"><rect width="100%" height="100%" fill="#e3e8e5"/><text x="120" y="86" font-family="sans-serif" font-size="13" fill="#6a7a73" text-anchor="middle">Preview not loaded</text></svg>');
 function thumbImg(r, onFail) {
-  const img = h('img', { src: r.thumb, alt: r.name, loading: 'lazy' }), bust = (u, n) => u + (u.includes('?') ? '&' : '?') + 'dwr=' + n;
+  const img = h('img', { src: r.thumb, alt: r.name, loading: 'lazy', referrerpolicy: 'no-referrer' }), bust = (u, n) => u + (u.includes('?') ? '&' : '?') + 'dwr=' + n;
   let tries = 0, retry = null;
   img.addEventListener('error', () => {
     if (img.src === NO_THUMB) return;
     tries++;
     if (tries <= 3) return void setTimeout(() => { img.src = tries === 2 && r.name ? imgUrl(r.name, 360) : bust(r.thumb, tries); }, 800 * tries * tries);
-    img.src = NO_THUMB; img.classList.add('jv-nothumb');
+    img.src = NO_THUMB; img.classList.add('jv-nothumb'); img.title = 'Preview could not be loaded from: ' + r.thumb;
     if (!retry && img.parentNode) {
       retry = h('div', { class: 'jv-retry', title: 'Try loading this preview again', onclick: e => { e.stopPropagation(); tries = 0; img.classList.remove('jv-nothumb'); img.src = bust(r.thumb, Date.now()); retry.remove(); retry = null; } }, '↻');
       img.parentNode.append(retry);
@@ -816,11 +843,12 @@ function setOtherVersions(t, ov) {
   return before + (/\n$/.test(before) ? '' : '\n') + '| Other versions = ' + gal + '\n' + t.slice(at);
 }
 /* otherversions:end */
+const PHAB_URL = 'https://phabricator.wikimedia.org/project/board/9174/', DOI_URL = 'https://doi.org/10.5281/zenodo.23680558';
 const ME_URL = 'https://meta.wikimedia.org/wiki/User:Manojk';
 const LOGO = 'https://commons.wikimedia.org/wiki/Special:FilePath/DataWeaver.png?width=96';
 /* Edit summary tag (MediaWiki summaries are single-line) */
-const projTag = () => { const p = projCfg(); return S.project ? ' #' + ((p && p.tag) || S.project.replace(/[^A-Za-z0-9_-]/g, '')) : ''; };
-const sumTail = () => 'Metadata updated with Commons Data Weaver via #DataWeaver' + projTag();
+const projTag = r => { const p = projCfg(r), n = projName(r); return n ? ' #' + ((p && p.tag) || n.replace(/[^A-Za-z0-9_-]/g, '')) : ''; };
+const sumTail = r => 'Metadata updated with Commons Data Weaver via #DataWeaver' + projTag(r);
 const plural = (n, w) => n + ' ' + w + (n > 1 ? 's' : '');
 function noteStats(r) {
   const o = JSON.parse(r.notesOrig || '[]'), c = r.notes || [], oid = new Set(o.map(n => n.id)), cid = new Set(c.map(n => n.id));
@@ -828,16 +856,16 @@ function noteStats(r) {
     chg: c.filter(n => oid.has(n.id) && JSON.stringify(n) !== JSON.stringify(o.find(x => x.id === n.id))).length };
 }
 function wikitextSummary(r) {
-  const p = r.pend, parts = [], cl = a => [...a].map(n => '[[Category:' + n + ']]').join(', '), hc = helpCat();
+  const p = r.pend, parts = [], cl = a => [...a].map(n => '[[Category:' + n + ']]').join(', '), hc = helpCat(r);
   const addC = [...p.addC].filter(n => n !== hc), remC = [...p.remC].filter(n => n !== hc);
   if (addC.length) parts.push('Added ' + cl(addC));
   if (remC.length) parts.push('Removed ' + cl(remC));
-  if (hc && p.addC.has(hc)) parts.push('Flagged as needing help (project ' + S.project + '): [[Category:' + hc + ']]');
-  if (hc && p.remC.has(hc)) parts.push('Removed help-needed flag (project ' + S.project + '): [[Category:' + hc + ']]');
+  if (hc && p.addC.has(hc)) parts.push('Flagged as needing help (project ' + projName(r) + '): [[Category:' + hc + ']]');
+  if (hc && p.remC.has(hc)) parts.push('Removed help-needed flag (project ' + projName(r) + '): [[Category:' + hc + ']]');
   if (p.loc) parts.push((r.lat == null ? 'Added' : 'Updated') + ' Geolocation');
   if (notesDirty(r)) { const k = noteStats(r); if (k.add) parts.push('Added ' + plural(k.add, 'image note')); if (k.chg) parts.push('Updated ' + plural(k.chg, 'image note')); if (k.rem) parts.push('Removed ' + plural(k.rem, 'image note')); }
   if (ovDirty(r)) { const had = JSON.parse(r.ovOrig || '[]').length; parts.push(r.ov.length ? (had ? 'Updated Other Versions' : 'Added Other Versions') : 'Removed Other Versions'); }
-  const tail = sumTail(), max = Math.max(80, 480 - tail.length - 2); let t = parts.join(', '); if (t.length > max) t = t.slice(0, max) + '…';
+  const tail = sumTail(r), max = Math.max(80, 480 - tail.length - 2); let t = parts.join(', '); if (t.length > max) t = t.slice(0, max) + '…';
   return t + ', ' + tail;
 }
 function parseNotes(t) {
@@ -881,11 +909,11 @@ async function saveRec(r) {
       const rem = [...p.remD].map(id => { const d = r.depicts.find(x => x.id === id); return d && { id: d.claim, remove: '' }; }).filter(Boolean);
       const claims = [...p.addD].map(id => ({ mainsnak: { snaktype: 'value', property: 'P180', datavalue: { value: { 'entity-type': 'item', 'numeric-id': +id.slice(1) }, type: 'wikibase-entityid' } }, type: 'statement', rank: 'normal' })).concat(rem);
       /* Wikibase already writes "Created claim: depicts (P180): …" in front of this text, so only the tool's tail is added */
-      if (claims.length) await post({ action: 'wbeditentity', id: 'M' + r.id, data: JSON.stringify({ claims }), summary: sumTail() }, r);
+      if (claims.length) await post({ action: 'wbeditentity', id: 'M' + r.id, data: JSON.stringify({ claims }), summary: sumTail(r) }, r);
     }
     for (const l of capDiff(r)) {
       const nv = (r.caps[l] || '').trim(), ov = r.capsOrig[l] || '';
-      await post({ action: 'wbsetlabel', id: 'M' + r.id, language: l, value: nv, summary: (!ov ? 'Added' : !nv ? 'Removed' : 'Changed') + ' caption (' + l + '), ' + sumTail() }, r);
+      await post({ action: 'wbsetlabel', id: 'M' + r.id, language: l, value: nv, summary: (!ov ? 'Added' : !nv ? 'Removed' : 'Changed') + ' caption (' + l + '), ' + sumTail(r) }, r);
     }
     if (p.addC.size || p.remC.size || p.loc || notesDirty(r) || ovDirty(r)) {
       const t = await getText(r), nt = editText(t, p, r);
@@ -1043,7 +1071,7 @@ function ovSection(r) {
 }
 const canAnnotate = () => /confirmed/.test((mw.config.get('wgUserGroups') || []).join(' ')); // same rule as the ImageAnnotator gadget config
 function annotWrap(r) {
-  const img = h('img', { src: imgSrc(r), alt: r.name, draggable: 'false' }), wrap = h('div', { class: 'jv-annwrap' + (S.annOn ? ' draw' : '') }, img);
+  const img = h('img', { src: imgSrc(r), alt: r.name, draggable: 'false', referrerpolicy: 'no-referrer' }), wrap = h('div', { class: 'jv-annwrap' + (S.annOn ? ' draw' : '') }, img);
   /* a size that Wikimedia cannot make (or is busy making) falls back to the preview that is already loaded in the grid */
   let big = 0; img.addEventListener('error', () => { big++; if (big === 1) setTimeout(() => { img.src = imgSrc(r) + (imgSrc(r).includes('?') ? '&' : '?') + 'dwr=1'; }, 1200); else if (big === 2 && r.thumb && img.src !== r.thumb) img.src = r.thumb; });
   (r.notes || []).forEach(n => {
@@ -1110,6 +1138,9 @@ const orderLangs = (keys, pref) => pref.concat(keys.filter(k => !pref.includes(k
 ['dw:language', 'dw:settings'].forEach(ev => document.addEventListener(ev, () => { if (SV && SV.style.display !== 'none') renderSingle(true); }));
 
 /* ---- image size and fit: remembered for the next files ---- */
+/* small remembered interface choices */
+try { Object.assign(S, { hideLoc: !!(JSON.parse(localStorage.getItem('dataweaver-ui') || '{}').hideLoc) }); } catch (e) { S.hideLoc = false; }
+function setUi(o) { Object.assign(S, o); try { localStorage.setItem('dataweaver-ui', JSON.stringify({ hideLoc: S.hideLoc })); } catch (e) {} }
 const SIZES = [500, 960, 1280, 1920, 3840]; // standard Wikimedia thumbnail widths, made on demand
 function imgSrc(r) {
   const w = S.imgSize === 'orig' ? 0 : +S.imgSize;
@@ -1133,6 +1164,7 @@ function imgBar(r) {
     h('a', { href: r.url, target: '_blank', rel: 'noopener' }, 'Open on Commons'));
 }
 
+const isCampCat = n => (S.srcCat && normCat(S.srcCat) === n) || /\b(Wiki Loves|Images from|Media from|Wikipedia Asian Month)\b/i.test(n);
 function renderSingle(keepScroll) {
   const r = S.cur, eff = effDepicts(r), pc = pendCount(r), pref = capLangs(), multi = pref.length > 1;
   const keep = {};
@@ -1141,12 +1173,12 @@ function renderSingle(keepScroll) {
   const twol = (a, b) => h('span', { class: 'jv-twol' }, a, h('br'), b);
   const head = h('div', { class: 'jv-sv-head' },
     h('button', { title: 'Previous file (←)', onclick: () => step(-1) }, '◀'), h('b', { class: 'jv-fname', title: r.name }, r.name),
-    h('span', { class: 'jv-dim' }, (S.view.indexOf(r) + 1) + ' / ' + S.view.length),
+    h('span', { class: 'jv-dim' }, (S.view.indexOf(r) + 1) + ' / ' + S.view.length), r.proj ? h('span', { class: 'jv-projtag', title: 'Project from a heading in your list page' }, r.proj) : '',
     h('button', { title: 'Next file (→)', onclick: () => step(1) }, '▶'), h('span', { style: 'flex:1' }),
     h('button', { class: 'jv-starb' + (isStar(r) ? ' on' : ''), title: 'Star this file (Space)', onclick: () => { toggleStar(r); renderSingle(true); } }, isStar(r) ? '★ Starred' : '☆ Star'),
     h('button', { class: 'jv-starb jv-prb' + (r.pr === true ? ' ok' : r.pr === false ? ' no' : ''), title: prTip(r) + ' (P)', onclick: async () => { await addPR(r); renderSingle(true); } },
       h('img', { src: PR_ICON, alt: '', style: 'height:18px;vertical-align:middle' }), ' ', twol((r.pr === true ? '✔ ' : '✚ ') + 'Personality', 'rights')),
-    S.project ? h('button', { class: 'jv-starb jv-helpb' + (isHelp(r) ? ' on' : '') + (helpCat() ? '' : ' off'), title: helpTip(r), onclick: () => { toggleHelp(r); renderSingle(true); } }, '⚑ ', twol('Help', 'needed')) : '',
+    projName(r) ? h('button', { class: 'jv-starb jv-helpb' + (isHelp(r) ? ' on' : '') + (helpCat(r) ? '' : ' off'), title: helpTip(r), onclick: () => { toggleHelp(r); renderSingle(true); } }, '⚑ ', twol('Help', 'needed')) : '',
     h('span', { class: r.status === 'error' ? 'jv-bad' : 'jv-dim' }, r.status === 'saved' && !pc ? 'Saved' : r.status === 'error' ? 'Error: ' + r.err : pc ? pc + ' unsaved' : ''),
     h('button', { class: 'jv-primary', onclick: async () => { await saveRec(r); renderSingle(true); } }, 'Save'),
     h('button', { class: 'jv-primary', onclick: async () => { await saveRec(r); step(1); } }, 'Save & next'),
@@ -1173,10 +1205,15 @@ function renderSingle(keepScroll) {
 
   // categories (left) and file details (right) side by side, each scrolling on its own; the add box sits below both
   const cl = h('div', { class: 'jv-chips' });
-  effCats(r).forEach(c => cl.append(h('span', { class: 'jv-chip' + (c.added ? ' new' : '') + (c.hidden ? ' hid' : '') },
+  effCats(r).filter(c => !isCampCat(c.n)).forEach(c => cl.append(h('span', { class: 'jv-chip' + (c.added ? ' new' : '') + (c.hidden ? ' hid' : '') },
     h('a', { href: mw.util.getUrl('Category:' + c.n), target: '_blank' }, c.n), h('button', { onclick: () => { removeCat(r, c.n); renderSingle(true); } }, '×'))));
   [...r.pend.remC].forEach(n => cl.append(h('span', { class: 'jv-chip del' }, n, h('button', { title: 'Undo', onclick: () => { addCat(r, n); renderSingle(true); } }, '↺'))));
-  const left = h('div', { class: 'jv-cdl', 'data-sc': 'cdl' }, h('h4', {}, 'Categories'), cl);
+  /* the campaign category (the one you loaded, or one named after a campaign) is pinned at the top and locked against accidental removal */
+  const camps = effCats(r).filter(c => isCampCat(c.n)), pin = h('div', { class: 'jv-pinned' });
+  camps.forEach(c => { const open = S.catUnlock; pin.append(h('span', { class: 'jv-chip lock' + (c.added ? ' new' : ''), title: open ? 'Unlocked: × removes it from this file' : 'Locked campaign category. Click 🔒 to allow removing it.' },
+    h('button', { title: open ? 'Lock again' : 'Unlock', onclick: () => { S.catUnlock = !S.catUnlock; renderSingle(true); } }, open ? '🔓' : '🔒'),
+    h('a', { href: mw.util.getUrl('Category:' + c.n), target: '_blank' }, c.n), open ? h('button', { onclick: () => { removeCat(r, c.n); renderSingle(true); } }, '×') : '')); });
+  const left = h('div', { class: 'jv-cdl', 'data-sc': 'cdl' }, h('h4', {}, 'Categories'), camps.length ? pin : '', cl);
   if (r._sugg && r._sugg.length) {
     const have = new Set(effCats(r).map(c => c.n)), todo = r._sugg.filter(s => s.exists && !have.has(s.n));
     left.append(h('div', { class: 'jv-sugg' }, h('b', {}, 'Suggested from Wikidata: '),
@@ -1194,10 +1231,11 @@ function renderSingle(keepScroll) {
 
   // location
   const loc = effLoc(r), mapEl = h('div', { class: 'jv-mapbox' });
-  const locS = h('section', { class: 'jv-box jv-loc' }, h('h4', {}, 'Location'),
-    h('div', { class: 'jv-row' }, h('span', { class: r.pend.loc ? 'jv-unsaved' : '' }, loc ? loc.lat.toFixed(5) + ', ' + loc.lon.toFixed(5) + (r.pend.loc ? ' (unsaved)' : '') : 'No location'),
+  const locS = h('section', { class: 'jv-box jv-loc span2' }, h('div', { class: 'jv-row', style: 'margin:0 0 4px' }, h('h4', { style: 'flex:1;margin:0' }, 'Location' + (S.hideLoc ? (loc ? ' · ' + loc.lat.toFixed(4) + ', ' + loc.lon.toFixed(4) : ' · none') : '')),
+      h('button', { title: 'Hide or show the location box (remembered)', onclick: () => { setUi({ hideLoc: !S.hideLoc }); renderSingle(true); } }, S.hideLoc ? '▸ Show location' : '▾ Hide location')),
+    S.hideLoc ? '' : h('div', { class: 'jv-row' }, h('span', { class: r.pend.loc ? 'jv-unsaved' : '' }, loc ? loc.lat.toFixed(5) + ', ' + loc.lon.toFixed(5) + (r.pend.loc ? ' (unsaved)' : '') : 'No location'),
       h('button', { onclick: () => openMapPicker(loc, p => { r.pend.loc = p; renderSingle(true); }) }, loc ? 'Change on map / search' : 'Pin on map / search'),
-      r.pend.loc ? h('button', { onclick: () => { r.pend.loc = null; renderSingle(true); } }, 'Undo') : '', h('button', { onclick: () => { S.hideMap = !S.hideMap; renderSingle(true); } }, S.hideMap ? 'Show map' : 'Hide map')), S.hideMap ? '' : mapEl);
+      r.pend.loc ? h('button', { onclick: () => { r.pend.loc = null; renderSingle(true); } }, 'Undo') : '', h('button', { onclick: () => { S.hideMap = !S.hideMap; renderSingle(true); } }, S.hideMap ? 'Show map' : 'Hide map')), S.hideLoc || S.hideMap ? '' : mapEl);
 
   // captions and descriptions: the interface language first, then English, then the rest
   const capBox = h('section', { class: 'jv-box', 'data-sc': 'cap' }, h('h4', {}, 'Captions (all languages)'));
@@ -1212,11 +1250,11 @@ function renderSingle(keepScroll) {
   dk.forEach(l => capBox.append(h('div', { class: 'jv-row top' }, h('code', {}, l), h('div', {}, r.descs[l]))));
 
   const wrap = annotWrap(r), annS = annSection(r), ovS = ovSection(r);
-  annS.classList.add('jv-box'); annS.dataset.sc = 'ann'; if (!ovS) annS.classList.add('span2');
-  if (ovS) { ovS.classList.add('jv-box'); ovS.dataset.sc = 'ov'; }
+  annS.classList.add('jv-box', 'jv-ann'); annS.dataset.sc = 'ann'; capBox.classList.add('jv-capb');
+  if (ovS) { ovS.classList.add('jv-box', 'span2'); ovS.dataset.sc = 'ov'; }
   const imgPane = h('div', { class: 'jv-sv-img' + (S.imgFit === 'width' ? ' wide' : '') }, imgBar(r), h('div', { class: 'jv-imgbox', 'data-sc': 'img' }, wrap));
-  SV.append(head, h('div', { class: 'jv-sv-body' }, imgPane, h('div', { class: 'jv-sv-side' }, dep, catBox, locS, capBox, ovS || '', annS)));
-  if (!S.hideMap) SlippyMap(mapEl, { lat: loc && loc.lat, lon: loc && loc.lon, z: loc ? 13 : 4, marker: loc, readonly: true });
+  SV.append(head, h('div', { class: 'jv-sv-body' }, imgPane, h('div', { class: 'jv-sv-side' }, dep, catBox, annS, capBox, ovS || '', locS)));
+  if (!S.hideMap && !S.hideLoc) SlippyMap(mapEl, { lat: loc && loc.lat, lon: loc && loc.lon, z: loc ? 13 : 4, marker: loc, readonly: true });
   if (keepScroll) SV.querySelectorAll('[data-sc]').forEach(e => { if (keep[e.dataset.sc] != null) e.scrollTop = keep[e.dataset.sc]; });
   if (r._detSig !== catSig(r)) startDetect(r);
 }
@@ -1239,6 +1277,7 @@ function updateStats() {
     set(1, 'Missing depicts (' + noDep + ')'); set(2, 'Has depicts (' + (L - noDep) + ')'); set(3, 'Unsaved depicts changes (' + uns + ')');
     set(4, 'Missing location (' + noLoc + ')'); set(5, 'Has location (' + (L - noLoc) + ')');
     set(6, 'Missing category · ignoring hidden cats (' + noCat + ')'); set(7, 'Missing category · counting hidden cats (' + noCatAll + ')'); set(8, 'Has category · ignoring hidden cats (' + (L - noCat) + ')');
+    const noCam = S.recs.filter(r => !r.camera).length; set(9, 'Files without camera information (' + noCam + ')'); set(10, 'Files with camera information (' + (L - noCam) + ')');
   } catch (e) {}
 }
 const catIn = h('input', { type: 'text', placeholder: 'Category name, e.g. Fishes of Kerala', style: 'width:190px' });
@@ -1248,16 +1287,18 @@ const mkSel = (opts, val, fn) => { const s = h('select', { onchange: e => fn(e.t
 
 const depSel = mkSel([['all', 'All files'], ['missing', 'Missing depicts'], ['has', 'Has depicts'], ['unsaved', 'Unsaved depicts changes'],
   ['loc-missing', 'Missing location'], ['loc-has', 'Has location'],
-  ['cat-missing', 'Missing category · ignoring hidden cats'], ['cat-missing-all', 'Missing category · counting hidden cats'], ['cat-has', 'Has category · ignoring hidden cats']], 'all', v => setDepFilter(v));
+  ['cat-missing', 'Missing category · ignoring hidden cats'], ['cat-missing-all', 'Missing category · counting hidden cats'], ['cat-has', 'Has category · ignoring hidden cats'],
+  ['cam-missing', 'Files without camera information'], ['cam-has', 'Files with camera information']], 'all', v => setDepFilter(v));
 function setDepFilter(v) {
   if (![...depSel.options].some(o => o.value === v)) depSel.append(h('option', { value: v }, 'Depicts: ' + labelOf(v)));
-  depSel.value = v; S.fDep = 'all'; S.fLoc = 'all'; S.fCat = 'all'; S.hidCats = false;
+  depSel.value = v; S.fDep = 'all'; S.fLoc = 'all'; S.fCat = 'all'; S.fCam = 'all'; S.hidCats = false;
   if (/^loc-/.test(v)) S.fLoc = v.slice(4);
+  else if (/^cam-/.test(v)) S.fCam = v.slice(4);
   else if (/^cat-/.test(v)) { S.fCat = v.indexOf('missing') > 0 ? 'missing' : 'has'; S.hidCats = /-all$/.test(v); }
   else S.fDep = v;
   renderGrid();
 }
-const keysBtn = h('button', { onclick: () => keysModal(), title: 'Keyboard shortcuts (?)' }, '⌨ Keys');
+const keysBtn = h('button', { class: 'dw-icon-btn dw-keysbtn', onclick: () => keysModal(), title: 'Keyboard shortcuts (?)' }, '⌨ Keys');
 function depictsFreq() {
   const m = new Map();
   S.recs.forEach(r => new Set(effDepicts(r)).forEach(id => {
@@ -1325,7 +1366,7 @@ const projSel = h('select', { class: 'jv-projsel' + (S.project ? ' on' : ''), ti
   applyProject();
 } });
 function applyProject() {
-  root.classList.toggle('has-proj', !!S.project);
+  root.classList.toggle('has-proj', !!S.project || S.recs.some(x => x.proj));
   S.recs.forEach(refreshCard); updateStats();
   if (SV && SV.style.display !== 'none') renderSingle(true);
 }
@@ -1373,7 +1414,7 @@ const tools = h('div', { class: 'jv-tools' }, toggle,
   h('span', {}, 'Sort'), mkSel([['name', 'Filename'], ['author', 'Author'], ['license', 'Licence'], ['dateObs', 'Observation date'], ['upload', 'Upload date'], ['camera', 'Camera'], ['resolution', 'Resolution'], ['size', 'File size'], ['starred', 'Starred']], 'name', v => { S.sort = v; renderGrid(); }),
   mkSel([['1', '↑ Asc'], ['-1', '↓ Desc']], '1', v => { S.dir = +v; renderGrid(); }),
   starSel, h('span', {}, 'Filter'), depSel, h('span', {}, 'Series'), serSel, secBox,
-  h('input', { type: 'search', placeholder: 'Filter…', oninput: e => { S.fText = e.target.value; renderGrid(); } }), keysBtn, h('span', { style: 'flex:1' }),
+  h('input', { type: 'search', placeholder: 'Filter…', oninput: e => { S.fText = e.target.value; renderGrid(); } }), h('span', { style: 'flex:1' }),
   dlSel);
 
 /* batch panel */
@@ -1433,9 +1474,11 @@ const panel = h('aside', { class: 'jv-panel' }, h('div', { class: 'jv-pbody' },
     h('button', { class: 'jv-primary', onclick: () => confirmSave(S.recs) }, 'Save all changes'))), logWrap);
 const main = h('div', { class: 'jv-main collapsed' }, panel, h('div', { class: 'jv-gridwrap' }, grid));
 root.append(top, tools, main, h('div', { class: 'jv-status' }, statusMsg, bar, stats),
-  h('div', { class: 'jv-credit' }, h('span', {}, '© Commons Data Weaver, 2026'),
+  h('div', { class: 'jv-credit' }, h('span', {}, '© Commons Data Weaver, 2026 · ', h('b', {}, 'v' + ((window.DW && DW.config && DW.config.version) || '1.1.0')), ' · ',
+      h('a', { href: PHAB_URL, target: '_blank', rel: 'noopener', title: 'Report a bug or ask for a feature on Phabricator' }, 'Phabricator'), ' · ', h('a', { href: DOI_URL, target: '_blank', rel: 'noopener', title: 'Cite this tool' }, 'DOI')),
     h('span', {}, 'built and maintained by ', h('a', { href: ME_URL, target: '_blank' }, 'Manoj Karingamadathil'), ', Wikimedia Biodiversity Taskforce, Sahya Digital Conservation Foundation')));
 document.body.append(root);
+{ const gear = document.getElementById('dw-gear'); gear && gear.parentNode ? gear.before(keysBtn) : tools.insertBefore(keysBtn, tools.lastChild); }   // Keys sits beside the gear
 renderGrid();
 
 function keysModal() {
@@ -1636,7 +1679,10 @@ mw.util.addCSS(`
 #jv-root button.jv-prb.ok{border-color:#14866d;color:#14866d}#jv-root button.jv-prb.no{border-color:#d33;color:#d33}
 #jv-root select.jv-projsel.on{background:#ffe9a8;border-color:#d99a00}
 /* ---- 1.1.0 ---- */
-.jv-tools{flex-wrap:wrap;row-gap:4px;white-space:normal}
+.jv-tools{flex-wrap:nowrap;white-space:nowrap;overflow-x:auto}
+.jv-tools>*{flex:0 1 auto;min-width:0}.jv-tools button,.jv-tools>span,.jv-tools .jv-selg{flex:none}
+.jv-tools select{max-width:150px;text-overflow:ellipsis}.jv-tools input[type=search]{flex:1 1 90px;width:auto;min-width:70px;max-width:160px}
+.jv-tools>span[style*="flex:1"]{flex:1 1 0;min-width:0}.jv-tools select[title^="Download"]{flex:none;max-width:120px}
 .jv-gridwrap{padding-left:12px}
 .jv-tools .jv-toggle{position:static;top:auto;left:auto;z-index:auto;padding:3px 8px!important}
 #jv-root button.jv-toggle{background:#fff3c4;border-color:#d99a00;font-weight:600}
@@ -1654,7 +1700,8 @@ mw.util.addCSS(`
 .jv-single button.jv-nextb{padding:4px 12px}
 .jv-fname{max-width:34vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .jv-sv-head{padding:5px 10px;gap:6px}
-/* one-by-one view: one screen, boxes scroll inside */
+/* one-by-one view: image on the left, the edit panel on the right (about 1.2 : 1); the panel scrolls, the file header stays put */
+.jv-sv-head{position:sticky;top:0;z-index:6}
 .jv-sv-body{overflow:hidden}
 .jv-sv-img{flex:1.2;padding:8px;justify-content:flex-start;align-items:stretch;min-width:0}
 .jv-imgbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;color:#cfe0d8;padding:0 0 6px;font-size:13px}
@@ -1665,21 +1712,25 @@ mw.util.addCSS(`
 .jv-sv-img.wide .jv-imgbox{align-items:flex-start}
 .jv-sv-img.wide .jv-annwrap{display:block;width:100%}
 .jv-sv-img.wide .jv-annwrap img{width:100%;max-height:none}
-.jv-sv-side{flex:1.5;max-width:none;min-width:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto minmax(110px,1fr) minmax(110px,1fr);grid-auto-rows:minmax(110px,1fr);gap:8px;padding:8px;background:#e6ece8;overflow:auto;align-content:stretch}
-.jv-sv-side>.jv-box{background:#fff;border:1px solid #cdd8d2;border-radius:4px;padding:8px 10px;overflow:auto;min-height:0;min-width:0;margin:0}
-.jv-sv-side>.jv-dep{grid-column:1/-1;grid-row:auto;max-height:30vh;display:flex;flex-direction:column;overflow:visible;border-width:2px}
-.jv-sv-side>.jv-dep .jv-depl{flex:1;min-height:34px;overflow:auto}
+.jv-sv-side{flex:1;max-width:640px;min-width:380px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-auto-rows:auto;gap:8px;padding:8px;background:#e6ece8;overflow:auto;align-content:start}
+.jv-sv-side>.jv-box{background:#fff;border:1px solid #cdd8d2;border-radius:4px;padding:8px 10px;min-width:0;margin:0;align-self:start;width:100%}
+.jv-sv-side>.jv-dep{grid-column:1/-1;display:flex;flex-direction:column;border-width:2px}
+.jv-sv-side>.jv-dep .jv-depl{max-height:34vh;overflow:auto}
 .jv-sv-side>.jv-dep .jv-sub{margin:6px 0}
-.jv-sv-side>.jv-catbox{grid-column:1/-1;display:flex;flex-direction:column;overflow:hidden;height:clamp(120px,22vh,230px)}
-.jv-cd{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:6px}
-.jv-cdl,.jv-cdr{overflow:auto;min-height:0}
+.jv-sv-side>.jv-catbox{grid-column:1/-1;display:flex;flex-direction:column}
+.jv-cd{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:6px}
+.jv-cdl,.jv-cdr{overflow:auto;max-height:30vh;min-height:0}
 .jv-cd h4{margin-top:0}
+.jv-cdl .jv-pinned{position:sticky;top:0;z-index:2;background:#fff;padding:2px 0 4px;border-bottom:1px solid #e1e8e4;margin-bottom:4px}
+.jv-chip.lock{background:#dbe8f7;border:1px solid #9bb9de;padding-right:9px}.jv-chip.lock button{padding:0 3px}
 .jv-sv-side>.span2{grid-column:1/-1}
-.jv-loc{display:flex;flex-direction:column;overflow:hidden!important}
-.jv-mapbox{flex:1;min-height:110px}
+.jv-loc{display:flex;flex-direction:column}
+.jv-mapbox{height:220px;min-height:160px}
 .jv-sv-side h4{margin:4px 0 6px}
 .jv-sv-side .jv-dchip{font-size:16px}
-@media(max-width:900px){.jv-sv-body{flex-direction:column;overflow:auto}.jv-sv-side{grid-template-columns:1fr;max-height:none;overflow:visible}.jv-sv-side>.jv-catbox,.jv-cd{grid-template-columns:1fr}.jv-sv-side>.jv-catbox{height:auto;max-height:none}}
+.jv-sv-side>.jv-box.jv-ann,.jv-sv-side>.jv-box.jv-capb{max-height:none}
+.jv-projtag{font-size:12px;background:#ffe9a8;border:1px solid #d99a00;color:#5c4200;border-radius:10px;padding:0 8px}
+@media(max-width:900px){.jv-sv-body{flex-direction:column;overflow:auto}.jv-sv-side{grid-template-columns:1fr;max-width:none;min-width:0;overflow:visible}.jv-cd{grid-template-columns:1fr}.jv-cdl,.jv-cdr{max-height:none}}
 kbd{display:inline-block;min-width:26px;text-align:center;border:1px solid #b7c5bd;border-bottom-width:2px;border-radius:4px;background:#f4f7f5;padding:0 6px;font:600 12px monospace}
 `);
 
@@ -1690,7 +1741,7 @@ function open() {
 }
 /* The web app is always open: there is no Tools-menu link or overlay toggle. */
 window.DW = window.DW || {};
-DW.core = { S, h, api, wd, root, WD, labelOf, ensureWd, normCat, effLoc, effDepicts, download, outName, safeName, stampNow, setStatus, openSingle, loadTitles, listCategory };
+DW.core = {parseListProjects, sumTail, helpCat, projName,  S, h, api, wd, root, WD, labelOf, ensureWd, normCat, effLoc, effDepicts, download, outName, safeName, stampNow, setStatus, openSingle, loadTitles, listCategory };
 document.dispatchEvent(new CustomEvent('dw:core'));
 open();
 

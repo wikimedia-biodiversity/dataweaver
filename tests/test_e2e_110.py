@@ -73,7 +73,15 @@ def test_single_view_fits_one_screen_hotkeys_image_size_and_captions(stack):
     load_category(page)
     open_single(page)
     side = page.locator(".jv-sv-side")
-    assert page.evaluate("(()=>{const e=document.querySelector('.jv-sv-side');return e.scrollHeight<=e.clientHeight+1})()"), "boxes should scroll inside, not the page"
+    # the edit panel scrolls inside the view; the file header stays locked at the top and the page itself does not scroll
+    page.evaluate("() => { const e = document.querySelector('.jv-sv-side'); e.scrollTop = e.scrollHeight; }")
+    assert abs(page.locator(".jv-sv-head").bounding_box()["y"] - page.locator(".jv-single").bounding_box()["y"]) <= 1
+    assert page.evaluate("() => document.documentElement.scrollTop") == 0
+    # layout: image on the left (larger), edit panel on the right (at most 640px); notes and captions side by side
+    ib, sb = page.locator(".jv-sv-img").bounding_box(), page.locator(".jv-sv-side").bounding_box()
+    assert ib["x"] < sb["x"] and ib["width"] >= sb["width"] and sb["width"] <= 641
+    nb, cb = page.locator(".jv-sv-side > .jv-ann").bounding_box(), page.locator(".jv-sv-side > .jv-capb").bounding_box()
+    assert nb["x"] < cb["x"] and abs(nb["y"] - cb["y"]) < 6
     # categories and file details sit side by side above the add box
     assert page.locator(".jv-catbox .jv-cdl h4").inner_text() == "Categories" and page.locator(".jv-catbox .jv-cdr h4").inner_text() == "File details"
     # image size: default 1280, choice is kept for the next file
@@ -323,4 +331,83 @@ def test_failed_thumbnail_is_retried_then_shows_a_retry_button(stack):
     load_category(page)
     expect(page.locator(".jv-retry")).to_have_count(1, timeout=25000)
     assert "jv-nothumb" in page.locator(".jv-card img").first.get_attribute("class")
+    ctx.close()
+
+
+def test_camera_filter_keys_beside_gear_one_line_toolbar_credit_line(stack):
+    ctx, page, problems = new_page(stack, logged_in=False)
+    page.set_viewport_size({"width": 1366, "height": 800})
+    page.goto(stack["base"] + "/")
+    load_category(page)
+    # filter: files without / with camera information (the canned files carry no camera data)
+    flt = page.locator(".jv-tools select").filter(has_text="Files without camera information")
+    page.evaluate("() => { DW.core.S.recs[0].camera = ''; }")      # one file without camera data
+    cams = page.evaluate("() => DW.core.S.recs.map(r => !!r.camera)")
+    with_cam, without = sum(cams), len(cams) - sum(cams)
+    flt.select_option("cam-missing")
+    assert page.locator(".jv-card").count() == without
+    flt.select_option("cam-has")
+    assert page.locator(".jv-card").count() == with_cam
+    flt.select_option("all")
+    assert page.locator(".jv-card").count() == len(cams)
+    assert "Files without camera information (%d)" % without in flt.inner_text()
+    # Keys button sits in the header beside the gear, not in the tool bar
+    assert page.locator(".dw-nav .dw-keysbtn").count() == 1 and page.locator(".jv-tools .dw-keysbtn").count() == 0
+    kb, gear = page.locator(".dw-keysbtn").bounding_box(), page.locator("#dw-gear").bounding_box()
+    assert kb["x"] < gear["x"] and gear["x"] - (kb["x"] + kb["width"]) < 40
+    # the tool bar stays on one line, and the Download menu is the last item, inside the window
+    tb = page.locator(".jv-tools").bounding_box()
+    dl = page.locator(".jv-tools select[title^='Download']").bounding_box()
+    assert tb["height"] < 50, tb
+    assert dl["x"] + dl["width"] <= 1366 and dl["x"] > page.locator(".jv-tools input[type=search]").bounding_box()["x"]
+    # credit line: version and the Phabricator link
+    credit = page.locator(".jv-credit")
+    assert "v1.1.0" in credit.inner_text()
+    assert credit.locator("a", has_text="Phabricator").get_attribute("href") == "https://phabricator.wikimedia.org/project/board/9174/"
+    assert credit.locator("a", has_text="DOI").get_attribute("href") == "https://doi.org/10.5281/zenodo.23680558"
+    page.goto(stack["base"] + "/about")
+    assert "10.5281/zenodo.23680558" in page.content() and "project/board/9174" in page.content()
+    assert not problems, problems
+    ctx.close()
+
+
+def test_location_can_be_hidden_and_campaign_category_is_locked(stack):
+    ctx, page, problems = new_page(stack, logged_in=False)
+    page.goto(stack["base"] + "/")
+    load_category(page)
+    page.evaluate("() => { DW.core.S.srcCat = 'Images from Wiki Loves Birds India 2025'; }")
+    open_single(page)
+    # location: hide / show, remembered
+    page.get_by_role("button", name="▾ Hide location").click()
+    expect(page.locator(".jv-mapbox")).to_have_count(0)
+    page.keyboard.press("Escape")
+    open_single(page, 1)
+    expect(page.get_by_role("button", name="▸ Show location")).to_be_visible()
+    page.get_by_role("button", name="▸ Show location").click()
+    expect(page.locator(".jv-mapbox")).to_have_count(1)
+    # campaign category: locked chip pinned at the top; unlock to remove
+    cats = page.evaluate("() => DW.core.S.cur.cats.map(c => c.n)")
+    assert cats
+    page.evaluate("() => { DW.core.S.cur.pend.addC.add('Images from Wiki Loves Birds India 2025'); }")
+    page.keyboard.press("Escape"); open_single(page, 1)
+    lock = page.locator(".jv-pinned .jv-chip.lock")
+    expect(lock).to_have_count(1)
+    assert lock.locator("button").count() == 1 and "🔒" in lock.inner_text()
+    lock.locator("button").first.click()
+    assert page.locator(".jv-pinned .jv-chip.lock button").count() == 2
+    assert not problems, problems
+    ctx.close()
+
+
+def test_project_from_list_headings_sets_summary_and_help(stack):
+    ctx, page, problems = new_page(stack, logged_in=False)
+    page.goto(stack["base"] + "/")
+    load_category(page)
+    text = "== Folkland ==\n<gallery>\nFile:Fish A.jpg|x\n</gallery>\n=== Batch 2 ===\nFile:Fish B.jpg\n== Notes ==\nFile:Other.jpg\n== Wiki Village ==\nFile:Village.jpg"
+    got = page.evaluate("t => DW.core.parseListProjects(t)", text)
+    assert got == {"File:Fish A.jpg": "Folkland", "File:Fish B.jpg": "Folkland", "File:Village.jpg": "Wiki Village"}, got
+    # a file's own project drives its hashtag and its help category
+    out = page.evaluate("""() => { const r = DW.core.S.recs[0]; r.proj = 'Wiki Village'; return [DW.core.sumTail(r), DW.core.helpCat(r)]; }""")
+    assert out[0].endswith("#DataWeaver #WikiVillage"), out
+    assert not problems, problems
     ctx.close()

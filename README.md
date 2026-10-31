@@ -2,7 +2,7 @@
 
 **Weave depicts, categories, locations and links between similar files into Wikimedia Commons, one file or a whole category at a time.**
 
-Live: <https://dataweaver.toolforge.org/> · Source: <https://github.com/wikimedia-biodiversity/dataweaver> · DOI: [10.5281/zenodo.23680559](https://doi.org/10.5281/zenodo.23680559) · Licence: GPL-3.0-or-later
+Live: <https://dataweaver.toolforge.org/> · Source: <https://github.com/wikimedia-biodiversity/dataweaver> · Bugs and ideas: [Phabricator](https://phabricator.wikimedia.org/project/board/9174/) · DOI: [10.5281/zenodo.23680558](https://doi.org/10.5281/zenodo.23680558) · Licence: GPL-3.0-or-later
 
 Built and maintained by [Manoj Karingamadathil](https://meta.wikimedia.org/wiki/User:Manojk) ([ORCID 0000-0003-3885-6595](https://orcid.org/0000-0003-3885-6595)), Wikimedia Biodiversity Taskforce, Sahya Digital Conservation Foundation.
 
@@ -122,4 +122,4 @@ Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Pl
 
 GPL-3.0-or-later, see [LICENSE](LICENSE). Vendored: jQuery IME (GPL-3.0-or-later or MIT) and jQuery (MIT), see [static/vendor/README.md](static/vendor/README.md). Credits for ideas, data and platform are on the [Credits page](https://dataweaver.toolforge.org/credits).
 
-To cite: see [CITATION.cff](CITATION.cff) or DOI [10.5281/zenodo.23680559](https://doi.org/10.5281/zenodo.23680559).
+To cite: see [CITATION.cff](CITATION.cff) or DOI [10.5281/zenodo.23680558](https://doi.org/10.5281/zenodo.23680558).

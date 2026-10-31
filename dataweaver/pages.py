@@ -31,7 +31,7 @@ def context(active, **extra):
         "me": me, "version": config.VERSION, "loginUrl": "/login",
     }
     base = dict(active=active, nav=NAV, about_tabs=ABOUT_TABS, me=me, client_config=client,
-                version=config.VERSION, doi=config.DOI, git_url=config.GIT_URL, author=config.AUTHOR,
+                version=config.VERSION, doi=config.DOI, git_url=config.GIT_URL, phab_url=config.PHAB_URL, author=config.AUTHOR,
                 author_url=config.AUTHOR_URL, orcid=config.ORCID, base_url=cfg["BASE_URL"],
                 oauth_ready=bool(cfg["OAUTH_CLIENT_ID"]))
     base.update(extra)
