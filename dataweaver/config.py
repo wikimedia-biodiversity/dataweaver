@@ -5,7 +5,7 @@ On Toolforge set them with ``toolforge envvars create NAME`` (see docs/DEPLOY.md
 """
 import os
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 DOI = "10.5281/zenodo.23680559"
 GIT_URL = "https://github.com/wikimedia-biodiversity/dataweaver"
 AUTHOR = "Manoj Karingamadathil"

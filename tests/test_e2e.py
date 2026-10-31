@@ -133,13 +133,17 @@ def test_tool_loads_grid_and_stages_a_category_without_login(stack):
     ctx, page, problems = new_page(stack, logged_in=False)
     page.goto(stack["base"] + "/")
     page.wait_for_selector("#jv-root")
-    assert page.is_visible("#dw-loginbar")            # not logged in: banner explains
+    expect(page.locator("#dw-loginbar")).to_be_visible()   # not logged in: banner explains (added once the page script has booted)
     assert page.locator(".dw-brand").inner_text().replace("\n", " ") == "Commons Data Weaver"
     load_category(page)
     assert page.locator(".jv-card").count() == 2
     page.wait_for_selector(".jv-card .jv-badges span:has-text('◈ 1')")   # depicts read from structured data
     page.locator(".jv-card").first.click()
     assert "sel" in page.locator(".jv-card").first.get_attribute("class")
+    # the batch panel starts hidden, with a warning once opened
+    assert not page.is_visible("input[placeholder='Search Commons category…']")
+    page.click(".jv-toggle")
+    expect(page.locator(".jv-warnnote")).to_be_visible()
     # batch: add a category to the selected file (category search uses three Commons queries)
     page.fill("input[placeholder='Search Commons category…']", "Test")
     page.locator(".jv-sug-i", has_text="Test cat").first.click()
@@ -161,6 +165,7 @@ def test_logged_in_save_goes_through_the_proxy_with_tags(stack):
     page.wait_for_selector(".jv-card")               # ?category= loads by itself
     assert not page.is_visible("#dw-loginbar") and page.locator(".dw-uname").inner_text() == "Test User"
     page.locator(".jv-card").first.click()
+    page.click(".jv-toggle")
     page.fill("input[placeholder='Search Commons category…']", "Test")
     page.locator(".jv-sug-i", has_text="Test cat").first.click()
     page.get_by_role("button", name="Add to selected").nth(1).click()
@@ -195,8 +200,21 @@ def test_settings_gear_switches_language_and_typing_works(stack):
     page.fill(".dw-try", "")
     page.click(".dw-try")
     page.wait_for_timeout(800)
+    # the system keyboard is the default: nothing is transliterated yet
+    page.keyboard.type("amma", delay=40)
+    assert page.input_value(".dw-try") == "amma"
+    # Ctrl+M switches the typing tool on ...
+    page.fill(".dw-try", "")
+    page.keyboard.press("Control+m")
+    expect(page.locator(".dw-imehint.on")).to_contain_text("Typing tool on")
     page.keyboard.type("amma", delay=60)
     assert page.input_value(".dw-try") == "അമ്മ"
+    # ... and Ctrl+M again goes back to the system keyboard
+    page.keyboard.press("Control+m")
+    expect(page.locator(".dw-imehint.on")).to_contain_text("System keyboard")
+    page.fill(".dw-try", "")
+    page.keyboard.type("amma", delay=40)
+    assert page.input_value(".dw-try") == "amma"
     stored = json.loads(page.evaluate("localStorage.getItem('dataweaver-settings')"))
     assert stored["lang"] == "ml" and stored["ime"]["enabled"] and stored["ime"]["method"] == "ml-transliteration"
     assert not problems, problems

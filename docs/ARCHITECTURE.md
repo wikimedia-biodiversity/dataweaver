@@ -63,11 +63,13 @@ Commons Data Weaver as a Toolforge web application. This note records what was c
   - limits edits per user per minute;
   - turns revoked or expired authorisation into a clear `session_expired` error and keeps the user's unsaved work in the page.
 
-### Frontend: the same plain JavaScript as the user script
+### Frontend: plain JavaScript, no framework
 
-- The interface (~1,500 lines) already works and users know it. Rewriting it in a framework would risk changing behaviour for no user benefit.
+- The interface started as the Commons user script (about 1,500 lines) that users already knew. Rewriting it in a framework would have changed behaviour for no user benefit, so it was kept and grows in place.
+- **Since 1.1.0 `static/js/dataweaver.js` is edited directly** (single page one-by-one view, image size and fit, Help needed flag, statistics hook). `tools/port_userscript.py` only reproduces the 1.0.0 baseline now.
 - `dw-shim.js` implements the handful of MediaWiki helpers it uses (`mw.Api`, `mw.ForeignApi`, `mw.config`, `mw.util`, `mw.loader`). Reads become `fetch` calls; `postWithEditToken` becomes a call to `/api/write`, keeping the `(code, data)` failure signature.
-- `tools/port_userscript.py` regenerates `dataweaver.js` from the user script with a short list of exact-text rules (no Close button, opt-in OSM search, configurable tile server, `?category=` deep link, no Tools-menu link). If the user script changes so a rule no longer matches, generation stops and names the rule: nothing silently diverges.
+- **Statistics** (`dw-stats.js`, `stats.css`): calculated in the browser from the files already loaded, so it adds no server code and no requests except map tiles. Charts are hand-written SVG (one blue for data, neutral text, hairline grids, hover tooltips, a table view, PNG/SVG/CSV downloads); the map is a small tile map with grid clustering. The interface reaches it through `DW.core`.
+- **Projects** (`static/config/projects.json`): the Project menu and each project's help category. It is a static file so maintainers can edit it in Git without touching code; if it cannot be read the four default project names are used.
 - No build step, no bundler, no npm in production: the repository is readable and fixable with a text editor.
 
 ### Security headers
@@ -110,6 +112,8 @@ The server stores no file metadata. Everything that matters lives on Commons.
 
 - The real Wikimedia OAuth endpoints, Toolforge deployment and the map tile server could not be exercised from the development sandbox; do a smoke test on a sandbox file after the first deploy (`docs/DEPLOY.md`).
 - Reads are anonymous, so heavy use is subject to the public API's anonymous rate limits. If that bites, reads could move behind the proxy using the user's token.
+- Statistics count what is saved on Commons for the loaded files only; a whole category is first listed and read in batches, so very large categories (many thousands of files) take a while to open.
+- The statistics map uses the configured tile server (`TILE_URL`), default the Wikimedia maps server (OpenStreetMap data). It cannot be downloaded as PNG because tile images from another site would block the canvas export; its locations are available as CSV.
 - Settings are per browser. Storing them in the user's Commons/Meta preferences (`Special:MyPage/DataWeaver.json`) would make them follow the user across devices.
 - Not implemented: a check for **missing reciprocal Other versions links** (file A lists B, but B does not list A). The data needed is already loaded for series.
 - Most of the tool's own labels still need translation (`@app` entries); only a starter Malayalam set is included, marked as a draft.

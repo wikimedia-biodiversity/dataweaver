@@ -7,6 +7,7 @@
   <meta name="description" content="{% block description %}Commons Data Weaver weaves depicts, categories, locations and links between similar files into Wikimedia Commons, one file or a whole category at a time.{% endblock %}">
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/logo.svg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+  {% block head %}{% endblock %}
   <script type="application/json" id="dw-config">{{ client_config|tojson }}</script>
 </head>
 <body class="{% block bodyclass %}{% endblock %}">

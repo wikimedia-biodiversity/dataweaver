@@ -29,16 +29,19 @@
   "settings-language-help": "Applies to menus and dialogs now; the rest of the tool is translated step by step.",
   "settings-typing": "Typing tools",
   "settings-typing-enable": "Use input methods in text fields",
-  "settings-typing-help": "Type in your own script with jQuery IME (the same input methods as Wikipedia's Universal Language Selector).",
+  "settings-typing-help": "Your system keyboard is used by default. Press Ctrl+M in any text field to switch to this typing tool, and Ctrl+M again to go back. (Input methods from jQuery IME, the same as Wikipedia's Universal Language Selector.)",
   "settings-typing-language": "Typing language",
   "settings-typing-method": "Input method",
-  "settings-typing-try": "Try your input method here",
+  "settings-typing-try": "Click here, press Ctrl+M, and try your input method",
   "settings-typing-loading": "Loading input methods…",
-  "settings-typing-ready": "$1 languages available. Switch methods from the keyboard icon beside any field, or press Ctrl+M.",
+  "settings-typing-ready": "$1 languages available. In any text field, press Ctrl+M to switch between your system keyboard and the chosen method.",
   "settings-privacy": "Third-party services",
   "settings-osm": "Search places on OpenStreetMap (Nominatim)",
   "settings-osm-help": "Off by default. When on, the place names you type are sent to nominatim.openstreetmap.org, which is not run by Wikimedia. Wikidata place search always works.",
   "settings-local-note": "Settings are stored in this browser only.",
   "settings-reset": "Reset settings",
-  "@app": {}
+  "@app": {},
+  "typing-on": "Typing tool on: $1. Press Ctrl+M for the system keyboard.",
+  "typing-off": "System keyboard. Press Ctrl+M for your typing tool.",
+  "typing-not-set": "No typing tool is set up. Open the gear ⚙, tick the typing option and choose a language and method."
 }

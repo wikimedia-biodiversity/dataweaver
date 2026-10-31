@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Commons Data Weaver{% endblock %}
 {% block bodyclass %}dw-app{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/stats.css') }}">{% endblock %}
 {% block content %}
 <div class="dw-boot" id="dw-boot">Loading Commons Data Weaver…</div>
 <noscript><div class="dw-noscript"><h1>JavaScript is required</h1>
@@ -9,5 +10,6 @@
 {% block footer %}{% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/dw-shim.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/dw-stats.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/dataweaver.js') }}" defer></script>
 {% endblock %}

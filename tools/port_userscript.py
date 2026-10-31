@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Regenerate static/js/dataweaver.js from the Commons Data Weaver user script.
+"""Reproduce the 1.0.0 baseline of static/js/dataweaver.js from the Commons Data Weaver user script.
+
+NOT part of the workflow since 1.1.0: dataweaver.js is edited directly now, and running this would overwrite it.
+Kept for reference and for anyone who wants to compare the web app with the user script.
 
 The web app and the Commons user script share one interface. The few places where the web app
 must differ (no overlay "Close" button, opt-in OpenStreetMap search, configurable tile server,

@@ -1,0 +1,22 @@
+{
+  "_about": "Projects offered in the Project dropdown, and the category that the Help needed button (H) adds for each. The name may contain letters, digits, spaces, - and _. Its hashtag in edit summaries is the name without spaces (#DataWeaver #WikiVillage); set \"tag\" to use another hashtag. Write the category name without the 'Category:' prefix. Leave helpCategory empty to keep the button dim.",
+  "projects": [
+    {
+      "name": "Bioregister",
+      "helpCategory": "Bioregister (Maintenance)"
+    },
+    {
+      "name": "Folkland",
+      "helpCategory": "Folkland (Maintenance)"
+    },
+    {
+      "name": "Heritage",
+      "helpCategory": "Heritage (Maintenance)"
+    },
+    {
+      "name": "Wiki Village",
+      "tag": "WikiVillage",
+      "helpCategory": "Wiki Village (Maintenance)"
+    }
+  ]
+}

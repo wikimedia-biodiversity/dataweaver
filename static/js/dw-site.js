@@ -191,9 +191,12 @@
     })().catch(e => { imeLoading = null; throw e; });
     return imeLoading;
   };
+  /* The system keyboard is the default. The configured typing tool only works after Ctrl+M (and Ctrl+M returns to the system keyboard).
+     It is switched on for the whole session, not saved, so every new visit starts with the system keyboard. */
+  DW.imeActive = false;
   function applyToIme(ime) {
     const $ = window.jQuery, s = DW.settings.ime;
-    if (!s.enabled) { ime.disable(); return; }
+    if (!s.enabled || !DW.imeActive) { ime.disable(); return; }
     if (s.lang && s.method && $.ime.languages[s.lang]) {
       ime.setLanguage(s.lang);
       $.ime.load(s.method).done(() => { ime.setIM(s.method); ime.enable(); });
@@ -211,6 +214,24 @@
     if (!DW.settings.ime.enabled || !window.jQuery) { attached.forEach(i => i.disable()); return; }
     attached.forEach(applyToIme);
   }
+  let hintEl = null, hintT = 0;
+  function imeHint(text) {
+    if (!hintEl) { hintEl = h('div', { class: 'dw-imehint', role: 'status' }); document.body.append(hintEl); }
+    hintEl.textContent = text; hintEl.classList.add('on'); clearTimeout(hintT); hintT = setTimeout(() => hintEl.classList.remove('on'), 2600);
+  }
+  document.addEventListener('keydown', async e => {
+    if (!(e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && (e.key === 'm' || e.key === 'M'))) return;
+    const el = e.target; if (!el || !el.matches || !el.matches(IME_SEL) || el.classList.contains('dw-no-ime')) return;
+    const s = DW.settings.ime;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (!s.enabled || !s.lang || !s.method) return imeHint(DW.t('typing-not-set'));
+    try { await DW.loadIME(); } catch (x) { return imeHint(String(x.message || x)); }
+    if (!DW.imeActive) await new Promise(res => window.jQuery.ime.load(s.method).always(res)); // rule file ready before the first key
+    DW.imeActive = !DW.imeActive;
+    attach(el); syncIme();
+    const name = (window.jQuery.ime.sources[s.method] || {}).name || s.method;
+    imeHint(DW.imeActive ? DW.t('typing-on', name) : DW.t('typing-off'));
+  }, true);
   document.addEventListener('focusin', e => { if (DW.settings.ime.enabled && window.jQuery && e.target.matches && e.target.matches(IME_SEL)) attach(e.target); });
   document.addEventListener('dw:settings', syncIme);
 

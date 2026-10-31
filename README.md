@@ -18,7 +18,9 @@ Load a Commons category, a list of file names or your own list page, review the 
 - **Categories:** combined Commons search, suggestions from the Wikidata item's own category.
 - **Location:** coordinates, map pin, Wikidata place search (OpenStreetMap search is opt-in); applied to many files at once.
 - **Series and Other versions:** group photos of the same subject (manual, or suggested by time or file name), warn when uploaders differ, tag a whole series in a collage, and list the photos in each other's Information template.
-- **Also:** captions in all languages, image notes (ImageAnnotator format), Personality rights button, stars, sort and filter with live counts, depicts word cloud and frequency table, JSON/CSV export, edit log.
+- **One file at a time:** a single-screen view with image size and fit, captions (your interface language first), image notes, Personality rights (`P`), and a **Help needed** flag (`H`) that adds a project's help category to problematic files.
+- **Statistics:** contributors, sizes, upload activity, cameras, a clustered photo map and a contributions table, with PNG/SVG/CSV downloads for every chart. Open it with `?stats&category=Name`.
+- **Also:** stars (`Space`), select invert (`I`), sort and filter with live counts, depicts word cloud and frequency table, JSON/CSV export named after the category, edit log.
 
 The full list is on the [Features page](https://dataweaver.toolforge.org/features) (source: [`templates/features.html`](templates/features.html)).
 
@@ -27,6 +29,9 @@ The full list is on the [Features page](https://dataweaver.toolforge.org/feature
 | | |
 |---|---|
 | ![Settings gear: language and typing tools](docs/img/settings.png) | ![About page](docs/img/about.png) |
+| ![One file at a time](docs/img/single-view.png) | ![Statistics (sample data)](docs/img/statistics.png) |
+
+*The one-by-one and statistics images use invented sample data; the statistics graphics are in [docs/img/stats-example](docs/img/stats-example).*
 
 ## How it fits together
 
@@ -73,13 +78,15 @@ app.py                      WSGI entry point (gunicorn app:app)
 Procfile, requirements.txt  Toolforge Build Service
 dataweaver/                 Flask app: auth.py, proxy.py, store.py, pages.py, config.py
 templates/                  Pages: tool shell, About, Features, Technology, Story, Community, Credits, How to use, Privacy
-static/js/dataweaver.js     The tool's interface (generated from the Commons user script)
+static/js/dataweaver.js     The tool's interface (edited directly since 1.1.0)
+static/js/dw-stats.js       Statistics page: calculations, SVG charts, map with clustering
+static/config/projects.json Projects and each project's "help needed" category
 static/js/dw-shim.js        MediaWiki helpers the interface expects (mw.Api, mw.config, …)
 static/js/dw-site.js        Navigation, login state, settings gear, localisation, typing tools
 static/i18n/                en.json, qqq.json, ml.json (draft), languages.json
 static/vendor/              jQuery and jQuery IME, served from this site
 tests/                      pytest: backend, pages, headless-browser end-to-end
-tools/                      port_userscript.py, screenshots.py
+tools/                      screenshots.py, sample_data.py (invented data); port_userscript.py (1.0.0 baseline only)
 docs/                       DEPLOY.md, ARCHITECTURE.md, screenshots
 ```
 
@@ -91,7 +98,7 @@ The gear in the top bar sets the interface language and input methods. To add a 
 
 ```bash
 make test-fast    # backend (OAuth, proxy allow-list, sessions) and pages (links, i18n, no inline scripts)
-make test         # adds headless Chromium: boot, load, select, stage, save through the proxy, language, typing
+make test         # adds headless Chromium: boot, load, select, stage, save through the proxy, language, typing, one-by-one view, Help flag, statistics
 ```
 
 The Wikimedia APIs are faked in all tests; no real wiki is contacted. CI runs the same on every push (`.github/workflows/ci.yml`).
@@ -105,7 +112,7 @@ git remote add origin git@github.com:wikimedia-biodiversity/dataweaver.git
 git push -u origin main
 ```
 
-`.gitignore` already excludes `.env`, `var/` and session databases. Tag a release (`git tag v1.0.0`) to get a new Zenodo DOI version if the repository is linked to Zenodo.
+`.gitignore` already excludes `.env`, `var/` and session databases. Tag a release (`git tag v1.1.0`) to get a new Zenodo DOI version if the repository is linked to Zenodo.
 
 ## Contributing
 

@@ -63,6 +63,10 @@ Each command asks for the value, so secrets do not land in your shell history. R
 | `NOMINATIM_URL` | no | OSM place search endpoint (used only when a user switches it on). |
 | `CONTACT` | no | Contact string inside the `User-Agent`, default the repository URL. |
 
+### Projects and the Help needed category
+
+`static/config/projects.json` lists the projects shown in the Project menu. Each has a `name` (letters, digits, spaces, `-` and `_`), an optional `tag` (the hashtag in edit summaries; by default the name without spaces, so *Wiki Village* gives `#WikiVillage`) and a `helpCategory`, the Commons category (without `Category:`) that the **Help needed** button adds. Leave `helpCategory` empty until the category exists. This file is part of the repository: edit it in Git and rebuild, no environment variable is needed.
+
 ## 3. Build and start
 
 ```bash
@@ -79,7 +83,7 @@ The buildpack installs `requirements.txt` and runs the `web` process from the `P
 Check it:
 
 ```bash
-curl -s https://dataweaver.toolforge.org/healthz        # {"status":"ok","version":"1.0.0"}
+curl -s https://dataweaver.toolforge.org/healthz        # {"status":"ok","version":"1.1.0"}
 ```
 
 Then open the site, press **Log in**, and save an edit on a file in your sandbox.

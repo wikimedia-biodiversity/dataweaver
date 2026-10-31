@@ -19,8 +19,9 @@
   <li>Each card shows badges for depicts (with the names of the first two), location, unsaved changes, saved and error.</li>
   <li><strong>Sort</strong> by filename, author, licence, observation date, upload date, camera, resolution, file size or starred, ascending or descending.</li>
   <li><strong>Filter</strong> with live counts: missing or has depicts, missing or has location, missing or has category (ignoring or counting hidden categories), and unsaved depicts changes. A free-text filter searches names, authors, licences, cameras and captions.</li>
-  <li><strong>Stars</strong> mark photos for this session only. They can be sorted, grouped first or shown alone, and they are included in downloads.</li>
-  <li>Keyboard: <kbd>A</kbd> select all, <kbd>G</kbd> group, <kbd>U</kbd> ungroup, <kbd>Esc</kbd> clear selection, <kbd>←</kbd> <kbd>→</kbd> move between files, <kbd>?</kbd> help.</li>
+  <li><strong>Stars</strong> mark photos for this session only. One menu sets how they are used: all files, starred first, only starred, or only <em>not</em> starred (to see what is left to review). They are included in downloads.</li>
+  <li><strong>Select</strong> buttons in the toolbar: All shown, None and <strong>Invert</strong> (select what is not selected, among the files shown).</li>
+  <li>Keyboard: <kbd>A</kbd> select all, <kbd>I</kbd> invert, <kbd>Space</kbd> star or unstar the selected files, <kbd>B</kbd> batch panel, <kbd>G</kbd> group, <kbd>U</kbd> ungroup, <kbd>Esc</kbd> clear selection, <kbd>←</kbd> <kbd>→</kbd> move between files, <kbd>?</kbd> help.</li>
 </ul>
 
 <div class="dw-feature" style="--c: var(--t-depicts)">
@@ -69,26 +70,49 @@
   </div>
 </div>
 
+<h2>One file at a time</h2>
+<ul>
+  <li><strong>One screen:</strong> the image on the left, and on the right boxes for depicts, categories with file details side by side, location, captions, other versions and image notes. The page does not scroll; each box scrolls inside itself when it needs to.</li>
+  <li><strong>Image size and fit:</strong> choose the size to load (500, 960, 1280, 1920, 3840 px or the original; only sizes smaller than the file are offered) and <em>Fit</em> (whole image visible) or <em>Width</em> (fill the width and scroll). <em>New tab</em> opens the chosen size on its own. The choice is remembered for the next files. Wikimedia prepares a size the first time it is asked for, so a new size can take a moment.</li>
+  <li><strong>Shortcuts here:</strong> <kbd>Space</kbd> star, <kbd>P</kbd> Personality rights, <kbd>H</kbd> help needed, <kbd>←</kbd> <kbd>→</kbd> previous and next. The ▶ after <em>Save &amp; next</em> moves on without saving.</li>
+  <li><strong>Help needed:</strong> when a project is chosen, a flag button (<kbd>H</kbd>) adds that project's <em>help</em> category to the file, to mark problematic files. It is staged like any other category and saved with the file; the edit summary says <em>Flagged as needing help (project …)</em>. The category for each project is kept in <code>static/config/projects.json</code>. Without a project the button is not shown.</li>
+</ul>
+
 <h2>More on each file</h2>
 <ul>
-  <li><strong>Captions</strong> in every language can be edited; descriptions are shown read-only.</li>
-  <li><strong>Image notes:</strong> draw rectangles on the image and write notes in the format the ImageAnnotator gadget shows on the file page (needs an autoconfirmed account).</li>
-  <li><strong>Personality rights:</strong> a button on each file adds <code>{{ '{{Personality rights}}' }}</code> above the licence header, with a green or red ring showing whether it is already there.</li>
-  <li><strong>Batch panel:</strong> collapsible; select all, none, invert, starred; star, group, ungroup; batch depicts, categories and location; save selected or save all.</li>
+  <li><strong>Captions</strong> in every language can be edited. The interface language chosen in the settings comes first, then English, then the rest; descriptions follow the same order but are read-only.</li>
+  <li><strong>Image notes:</strong> draw rectangles on the image and write notes in the format the ImageAnnotator gadget shows on the file page (needs an autoconfirmed account). Under each note, the depicts already on the file appear as chips: click one to link it into the note as <code>[[:d:Q…|label]]</code>.</li>
+  <li><strong>Personality rights:</strong> a compact two-line button (<kbd>P</kbd>) on each file adds <code>{{ '{{Personality rights}}' }}</code> above the licence header, with a green or red ring showing whether it is already there.</li>
+  <li><strong>Batch panel:</strong> hidden until you press the highlighted <em>Batch edit</em> button (<kbd>B</kbd>), and it starts with a warning that its actions change every selected file. It has select starred, star, group, ungroup, batch depicts, categories and location, and save selected or all.</li>
 </ul>
+
+<div class="dw-feature" style="--c: var(--t-ver)">
+  <h3>Statistics</h3>
+  <div>
+    <p>The <em>Statistics</em> button (left of <em>Depicts overview</em>) summarises the loaded files. Open it directly with <code>{{ base_url }}/?stats&amp;category=Fishes_of_Kerala</code>. Each chart has a <em>chart type</em> menu (bars, columns, pie, donut, line, cumulative, radial clock), and there are extra cards for weekdays, file formats, data coverage and an hour-by-weekday heatmap. Your choice is remembered. It is read from the files already loaded, so it counts what is saved on Commons.</p>
+    <ul>
+      <li><strong>Totals:</strong> contributors, files, total size, average size (with the largest and smallest), geotagged files, depicts added.</li>
+      <li><strong>Upload activity</strong> over time. The unit (hour, day, week, month or year) is chosen from the date range and the screen width.</li>
+      <li><strong>Top contributors, top camera models, top upload days</strong>, then the <strong>contribution distribution</strong> (files per contributor), <strong>file size distribution</strong> and <strong>upload hours</strong>. Times can be shown in UTC or your local time.</li>
+      <li><strong>Photo locations map</strong> on OpenStreetMap data: click a marker for the photo and its details; <em>Clustering</em> groups nearby photos and can be switched off.</li>
+      <li><strong>Detailed user contributions</strong> table, sortable, with size, first and last upload, geotagged files and files with depicts.</li>
+      <li>Every chart has <strong>PNG</strong> and <strong>SVG</strong> downloads that include the title, a description and the category and date, a <strong>CSV</strong> of the numbers, and a <strong>Table</strong> view.</li>
+    </ul>
+  </div>
+</div>
 
 <h2>Saving and exporting</h2>
 <ul>
   <li>Nothing is written until you save. Unsaved values are shown in red. Save one file, the selected files or everything; a summary dialog shows what will be written first.</li>
-  <li>Edit summaries read <em>Metadata updated with Commons Data Weaver via #DataWeaver</em>, plus the hashtag of the <strong>Project</strong> you choose (Bioregister, Folkland, Heritage or Wikivoyage).</li>
+  <li>Edit summaries read <em>Metadata updated with Commons Data Weaver via #DataWeaver</em>, plus the hashtag of the <strong>Project</strong> you choose (Bioregister, Folkland, Heritage or Wiki Village, whose hashtag is #WikiVillage; the list is in <code>static/config/projects.json</code>). For depicts, Wikibase already writes what was added or removed in front of this text, so the tool does not repeat it.</li>
   <li>The <strong>edit log</strong> at the bottom of the batch panel lists every edit of the session, with diff links and any errors.</li>
-  <li><strong>Download</strong> all, filtered, selected or starred files as JSON or CSV, including captions, descriptions, categories, depicts, location, series, other versions, annotations and the starred flag.</li>
+  <li><strong>Download</strong> all, filtered, selected or starred files as JSON or CSV, including captions, descriptions, categories, depicts, location, series, other versions, annotations and the starred flag. File names are <code>dataweaver-&lt;category or source file&gt;-&lt;date&gt;-&lt;time&gt;</code>, for example <code>dataweaver-Fishes_of_Kerala-20261030-142530.csv</code>.</li>
 </ul>
 
 <h2>Web app only</h2>
 <ul>
   <li><strong>Wikimedia login</strong> with OAuth 2.0: edits are made as you, and your password is never seen by this tool. You can start preparing edits before logging in; the login opens in a new tab so nothing is lost.</li>
-  <li><strong>Settings (gear):</strong> choose the interface language and set up typing tools (input methods for writing in other scripts, from <a href="https://github.com/wikimedia/jquery.ime" target="_blank" rel="noopener">jQuery IME</a>). See <a href="/technology">Technology</a> for how translations work.</li>
+  <li><strong>Settings (gear):</strong> choose the interface language and set up typing tools (input methods for writing in other scripts, from <a href="https://github.com/wikimedia/jquery.ime" target="_blank" rel="noopener">jQuery IME</a>). Your system keyboard is the default; <kbd>Ctrl</kbd>+<kbd>M</kbd> in any text field switches to the chosen input method and back. See <a href="/technology">Technology</a> for how translations work.</li>
   <li><strong>Privacy by default:</strong> third-party place search is off until you switch it on. See the <a href="/privacy">privacy note</a>.</li>
 </ul>
 {% endblock %}

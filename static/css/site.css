@@ -73,6 +73,7 @@ body.dw-app { overflow: hidden; }
 body.dw-app #jv-root { top: var(--nav-h); }
 body.dw-app.dw-has-bar #jv-root { top: calc(var(--nav-h) + 38px); }
 body.dw-app .jv-single { top: var(--nav-h); }
+body.dw-app.dw-has-bar .jv-single { top: calc(var(--nav-h) + 38px); }
 /* the navigation bar already carries the brand */
 body.dw-app .jv-brandw { display: none; }
 body.dw-app .jv-modal { z-index: 9800; }
@@ -146,6 +147,8 @@ body.dw-app .jv-modal { z-index: 9800; }
 .dw-field small { font-size: 12.5px; }
 
 /* typing tools are off: hide the keyboard selectors jquery.ime may have left behind */
+.dw-imehint{position:fixed;left:50%;bottom:18px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;z-index:100000;background:#17302b;color:#fff;padding:6px 14px;border-radius:6px;font-size:14px;transition:opacity .15s,transform .15s;max-width:90vw}
+.dw-imehint.on{opacity:1;transform:translateX(-50%)}
 body.dw-ime-off .imeselector, body.dw-ime-off .imeselector-menu { display: none !important; }
 .imeselector-menu, .imeselector { z-index: 21000; }
 

@@ -39,5 +39,8 @@
   "settings-osm-help": "Privacy explanation under the OpenStreetMap checkbox.",
   "settings-local-note": "Note: settings are saved in the browser, not on the server.",
   "settings-reset": "Button: restore default settings.",
-  "@app": "Source-text translations for the tool's own interface. Each key is the exact English text shown in the tool, each value its translation. Only static labels match; text with counters or file names is left as is."
+  "@app": "Source-text translations for the tool's own interface. Each key is the exact English text shown in the tool, each value its translation. Only static labels match; text with counters or file names is left as is.",
+  "typing-on": "Short hint shown when Ctrl+M switches the typing tool on. $1 is the input method name.",
+  "typing-off": "Short hint shown when Ctrl+M switches back to the system keyboard.",
+  "typing-not-set": "Short hint shown when Ctrl+M is pressed but no typing tool is configured."
 }

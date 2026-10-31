@@ -1,0 +1,50 @@
+/* Commons Data Weaver — statistics page. GPL-3.0-or-later. Light surface, one blue for data, text in neutral inks. */
+#jv-root .dws{position:absolute;inset:0;z-index:9500;display:none;flex-direction:column;background:#eef2ef;color:#17302b}
+#jv-root .dws *{box-sizing:border-box}
+#jv-root .dws-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 14px;background:#fff;border-bottom:1px solid #cdd8d2}
+#jv-root .dws-head h2{margin:0;font-size:18px}
+.dws-hsub{color:#52514e;font-size:13px;flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#jv-root .dws-close{background:#17302b;color:#fff;border-color:#17302b}
+#jv-root .dws-body{flex:1;min-height:0;overflow:auto;padding:14px 20px 30px;display:flex;flex-direction:column;gap:14px}
+.dws-tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.dws-tile{background:#fff;border:1px solid #cdd8d2;border-radius:6px;padding:10px 12px;min-width:0}
+.dws-tl{font-size:12px;color:#52514e}.dws-tv{font-size:26px;font-weight:600;line-height:1.2;color:#0b0b0b;overflow-wrap:anywhere}.dws-ts{font-size:12px;color:#6b6a65;min-height:16px}
+.dws-card{background:#fff;border:1px solid #cdd8d2;border-radius:6px;padding:10px 12px;min-width:0}
+.dws-ch{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:6px}
+.dws-ch h3{margin:0;font-size:15px;color:#0b0b0b}.dws-ch small{color:#52514e;font-size:12px}
+.dws-tools{display:flex;gap:4px;flex:none;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+#jv-root button.dws-mini{padding:1px 7px;font-size:12px}
+.dws-chk{font-size:12px;color:#52514e;display:inline-flex;align-items:center;gap:3px;margin-right:6px}
+.dws-row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.dws-plot{position:relative}.dws-plot svg{display:block;max-width:100%}
+.dws-tip{display:none;position:absolute;z-index:5;pointer-events:none;background:#0b0b0b;color:#fff;border-radius:4px;padding:3px 8px;font-size:12px;white-space:nowrap}
+.dws-bar{transition:fill .1s}.hot .dws-bar{fill:#256abf}
+.dws-table{border-collapse:collapse;width:100%;font-size:13px}
+.dws-table th{text-align:left;color:#52514e;font-weight:500;border-bottom:1px solid #cdd8d2;padding:4px 6px;white-space:nowrap}
+.dws-table td{padding:4px 6px;border-bottom:1px solid #edf1ee;vertical-align:middle}
+.dws-tablebox{max-height:260px;overflow:auto}
+.dws-table.users th{cursor:pointer;user-select:none}.dws-table.users th.on{color:#0b0b0b}
+.dws-usertab{overflow:auto}
+.dws-share{position:relative;height:16px;min-width:90px;background:#eef2f5}.dws-share div{height:100%;background:#2a78d6;opacity:.8}.dws-share span{position:absolute;left:4px;top:0;font-size:11px;line-height:16px;color:#0b0b0b}
+.dws-empty{padding:30px;text-align:center;color:#6b6a65}
+/* map */
+.dws-map{position:relative;height:480px;overflow:hidden;background:#dfe7e2;cursor:grab;touch-action:none;border:1px solid #cdd8d2;border-radius:4px}
+.dws-map:active{cursor:grabbing}
+.dws-tiles-l,.dws-marks{position:absolute;inset:0}.dws-marks{pointer-events:none}
+.dws-tiles-l img{position:absolute;width:256px;height:256px;max-width:none;user-select:none}
+#jv-root .dws-pin{position:absolute;width:15px;height:15px;padding:0;border-radius:50%;background:#2a78d6;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.3);transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer}
+#jv-root .dws-pin:hover{background:#104281;width:19px;height:19px}
+#jv-root .dws-cl{position:absolute;padding:0;border-radius:50%;border:2px solid #fff;font-weight:600;font-size:12px;text-align:center;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+#jv-root .dws-cl.s1{background:#9ec5f4;color:#0b0b0b}#jv-root .dws-cl.s2{background:#2a78d6;color:#fff}#jv-root .dws-cl.s3{background:#1c5cab;color:#fff}#jv-root .dws-cl.s4{background:#104281;color:#fff}
+.dws-mapctl{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:2px;z-index:6}
+#jv-root .dws-mapctl button{width:28px;padding:2px 0}
+.dws-attr{position:absolute;right:4px;bottom:2px;font-size:11px;background:rgba(255,255,255,.8);padding:0 4px;z-index:6}
+.dws-pop{position:absolute;z-index:7;width:290px;max-height:80%;overflow:auto;background:#fff;border:1px solid #8aa196;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.25);padding:8px 10px;cursor:default;font-size:13px}
+#jv-root .dws-popx{position:absolute;top:2px;right:2px;border:0;background:transparent;padding:0 6px}
+.dws-photo img{width:100%;max-height:170px;object-fit:cover;border-radius:3px;margin-bottom:6px;display:block;background:#dfe7e2}
+.dws-dim{color:#6b6a65;font-size:12px}
+.dws-listbody{max-height:200px;overflow:auto;margin-top:4px}.dws-listbody div{padding:1px 0}
+@media(max-width:1100px){.dws-row3{grid-template-columns:1fr}.dws-tiles{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.dws-tiles{grid-template-columns:repeat(2,1fr)}.dws-body{padding:10px}}
+.dws-slice{transition:opacity .1s}.hot .dws-slice{opacity:.82}.dws-cell{transition:opacity .1s}.hot .dws-cell{opacity:.75;stroke:#0b0b0b;stroke-width:1}
+#jv-root select.dws-type{font:inherit;font-size:12px;padding:1px 3px;border-radius:3px;border:1px solid #b7c5bd;background:#fff;max-width:130px}

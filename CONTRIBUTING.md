@@ -31,23 +31,29 @@ Without a consumer, everything works except logging in and saving.
 |---|---|
 | `dataweaver/` | Flask app: `auth.py` (OAuth 2.0), `proxy.py` (write proxy and its allow-list), `store.py` (sessions), `pages.py` (routes) |
 | `templates/` | Jinja pages: tool shell, About, How to use, and so on |
-| `static/js/dataweaver.js` | The tool's interface. **Generated** from the Commons user script, see below |
+| `static/js/dataweaver.js` | The tool's interface (grid, batch panel, one-by-one view, exports). Edit it directly |
+| `static/js/dw-stats.js`, `static/css/stats.css` | The statistics page: calculations, SVG charts, map with clustering |
+| `static/config/projects.json` | Projects for the Project menu and each project's "help needed" category |
 | `static/js/dw-shim.js` | The few MediaWiki helpers (`mw.Api`, `mw.config`, …) the interface expects |
 | `static/js/dw-site.js` | Navigation, login state, settings gear, localisation, typing tools |
 | `static/i18n/` | Message files |
 | `static/vendor/` | jQuery and jQuery IME, served from this site (Toolforge's rules discourage third-party scripts) |
-| `tests/` | `test_backend.py`, `test_pages.py`, `test_e2e.py` (headless Chromium, mocked Wikimedia APIs) |
+| `tests/` | `test_backend.py`, `test_pages.py`, `test_e2e.py` and `test_e2e_110.py` (headless Chromium, mocked Wikimedia APIs) |
+| `tools/` | `screenshots.py` and `sample_data.py` (invented data for the screenshots and the example statistics graphics) |
 
-### The interface is generated
+### The interface file
 
-`static/js/dataweaver.js` is produced by `tools/port_userscript.py` from the Commons Data Weaver
-user script, so both share one interface. To change the interface:
+Since 1.1.0, `static/js/dataweaver.js` is the source of truth: edit it directly. It started as the Commons user
+script; `tools/port_userscript.py` still reproduces the 1.0.0 baseline from that script, but running it now would
+overwrite the 1.1.0 features, so it is kept only for reference.
 
-1. change the user script, then run `make port SRC=path/to/CommonsDataWeaver.js`; **or**
-2. edit `static/js/dataweaver.js` directly and stop using the port script.
+`dw-stats.js` reaches the tool's data through `DW.core` (set at the end of `dataweaver.js`). Its calculations are
+plain functions (`DW.stats._calc`, `_activity`) so they are easy to test.
 
-Do not mix the two. If the user script changes in a way the port rules do not cover, the script
-stops and names the rule to update.
+### Projects and the Help needed category
+
+Edit `static/config/projects.json`: a project's `name` becomes the hashtag in edit summaries, and its `helpCategory`
+(without the `Category:` prefix) is what the Help needed button adds. Leave it empty until the category exists.
 
 ### The write proxy is deliberately small
 
