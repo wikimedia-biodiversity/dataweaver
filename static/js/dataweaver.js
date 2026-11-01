@@ -454,7 +454,7 @@ async function loadTitles(titles, source, isCategory, projMap) {
 /* ---------- grid ---------- */
 const SORT = {
   name: r => r.name.toLowerCase(), author: r => r.author.toLowerCase(), license: r => r.license.toLowerCase(),
-  dateObs: r => r.dateObs, upload: r => r.upload, camera: r => r.camera.toLowerCase(),
+  format: r => (r.name.split('.').pop() || '').toLowerCase(), dateObs: r => r.dateObs, upload: r => r.upload, camera: r => r.camera.toLowerCase(),
   resolution: r => r.w * r.h, size: r => r.bytes, starred: r => isStar(r) ? 1 : 0
 };
 const depFilter = r => {
@@ -542,7 +542,7 @@ function buildGroups() {
   const mk = (id, list, manual) => {
     if (list.length < 2) return;
     list.sort((a, b) => (a.dateObs || '').localeCompare(b.dateObs || '') || a.name.localeCompare(b.name));
-    S.groups[id] = { id, members: list, manual }; list.forEach(r => { r.gid = id; });
+    S.groups[id] = { id, members: list, manual, byAuthor: S.gmode === 'author' && !manual }; list.forEach(r => { r.gid = id; });
   };
   const man = {}; S.recs.forEach(r => { if (r.mgid) (man[r.mgid] = man[r.mgid] || []).push(r); });
   Object.keys(man).forEach(id => mk(id, man[id], true));
@@ -557,6 +557,9 @@ function buildGroups() {
         else { mk('a' + cur[0].r.id, cur.map(x => x.r)); cur = i < a.length ? [a[i]] : []; }
       }
     });
+  } else if (S.gmode === 'author') {
+    const b = {}; free.forEach(r => { const k = (r.author || '').trim().toLowerCase(); if (!k) return; (b[k] = b[k] || []).push(r); });
+    Object.keys(b).forEach(k => mk('a' + b[k][0].id, b[k]));
   } else if (S.gmode === 'name') {
     const b = {}; free.forEach(r => { const k = stemOf(r.name); if (k.length < 4 || GENERIC.test(k)) return; (b[k] = b[k] || []).push(r); });
     Object.keys(b).forEach(k => mk('a' + b[k][0].id, b[k]));
@@ -601,6 +604,64 @@ function groupSelected() {
   const id = 'm' + (++mgc); l.forEach(r => { r.mgid = id; r.nogroup = false; }); renderGrid(); setStatus('Grouped ' + l.length + ' photos as a series.'); return true;
 }
 function ungroupSelected() { const l = need(); if (!l.length) return false; l.forEach(r => { r.mgid = null; r.nogroup = true; }); renderGrid(); setStatus('Removed ' + l.length + ' photo(s) from their series.'); return true; }
+/* ---------- author → {{Creator:…}} (series grouped by author) ---------- */
+const AUTH_PARAMS = ['author', 'photographer'];
+const authVals = t => { const P = infoParams(t); return P ? P.segs.filter(x => AUTH_PARAMS.includes(x.name)).map(x => ({ name: x.name, val: x.body.slice(x.eq + 1).trim() })) : []; };
+function replaceAuthor(t, from, to) {
+  const P = infoParams(t); if (!P) return t;
+  P.segs.filter(x => AUTH_PARAMS.includes(x.name) && x.body.slice(x.eq + 1).trim() === from).sort((a, b) => b.from - a.from).forEach(x => {
+    const v = x.body.slice(x.eq + 1), lead = /^\s*/.exec(v)[0], trail = /\s*$/.exec(v)[0];
+    t = t.slice(0, x.from) + '|' + x.body.slice(0, x.eq + 1) + lead + to + trail + t.slice(x.to);
+  });
+  return t;
+}
+const MAX_AUTHOR_EDITS = 50;
+async function authorTool(list, done) {
+  const out = h('div', { class: 'jv-dim' }, 'Reading the file pages…'), body = h('div', { class: 'jv-modal-c' }, out);
+  const m = modal('Author → Creator template', body, [h('button', { onclick: () => m.remove() }, 'Close')]);
+  let texts;
+  try { texts = await Promise.all(list.map(async r => ({ r, t: await getText(r) }))); } catch (e) { out.textContent = 'Could not read the pages: ' + ((e && e.message) || e); return; }
+  const found = texts.map(x => ({ r: x.r, t: x.t, v: authVals(x.t) })), missing = found.filter(x => !x.v.length);
+  const all = [...new Set(found.flatMap(x => x.v.map(y => y.val)))];
+  out.innerHTML = '';
+  if (missing.length) out.append(h('div', { class: 'jv-gwarn soft' }, '⚠ No author / photographer parameter in: ' + missing.map(x => x.r.name).join(', ') + '. These files are skipped.'));
+  const todo = found.filter(x => x.v.length);
+  if (!todo.length) { out.append(h('div', { class: 'jv-gwarn' }, 'None of these files has an |author= or |photographer= parameter in its {{Information}} template.')); return; }
+  if (all.length > 1) {
+    out.append(h('div', { class: 'jv-gwarn' }, '⚠ These files do not all show the same author, so nothing will be changed. Found:'),
+      h('ul', {}, all.map(a => h('li', {}, h('code', {}, a)))), h('div', { class: 'jv-dim' }, 'Select only the files of one author (or group by author) and try again. Changing many different authors in one go is how mass-edit blocks happen.'));
+    return;
+  }
+  if (todo.length > MAX_AUTHOR_EDITS) { out.append(h('div', { class: 'jv-gwarn' }, '⚠ ' + todo.length + ' files is more than the ' + MAX_AUTHOR_EDITS + ' allowed in one run. Select fewer files.')); return; }
+  const cur = all[0], um = /\[\[\s*:?\s*User\s*:\s*([^\]|]+?)\s*(?:\|[^\]]*)?\]\]/i.exec(cur), user = um ? um[1].trim() : '', own = ME && user.replace(/_/g, ' ').toLowerCase() === ME.replace(/_/g, ' ').toLowerCase();
+  const nameIn = h('input', { type: 'text', placeholder: 'Creator name, e.g. Manoj Karingamadathil', style: 'width:100%' }), prev = h('div', { class: 'jv-dim' }), chk = h('input', { type: 'checkbox' }), go = h('button', { class: 'jv-primary', disabled: true }, 'Replace in ' + todo.length + ' file(s)'), msg = h('div', { class: 'jv-dim' });
+  let ok = false;
+  const upd = () => { const n = nameIn.value.trim(); prev.textContent = n ? 'Result: |author = {{Creator:' + n + '}}' : ''; go.disabled = !(ok && chk.checked && n); };
+  nameIn.addEventListener('input', () => { ok = false; upd(); clearTimeout(nameIn._t); nameIn._t = setTimeout(async () => {
+    const n = nameIn.value.trim(); if (!n) return;
+    try { const d = await api.get({ action: 'query', titles: 'Creator:' + n, formatversion: 2 }); ok = !d.query.pages[0].missing; msg.textContent = ok ? '✓ Creator:' + n + ' exists.' : '✗ Creator:' + n + ' does not exist on Commons. Create it first, or fix the name.'; } catch (e) { msg.textContent = 'Could not check the Creator page.'; }
+    upd(); }, 400); });
+  chk.addEventListener('change', upd);
+  out.append(h('div', {}, h('b', {}, 'Current author in all ' + todo.length + ' file(s): '), h('code', {}, cur)),
+    user && !own ? h('div', { class: 'jv-gwarn' }, '⚠ This is the user page of “' + user + '”, not yours (' + (ME || 'not logged in') + '). Only replace the author on your own files, or with the author’s consent.') : '',
+    h('div', { style: 'margin:8px 0 4px' }, 'Replace with {{Creator:…}}:'), nameIn, prev, msg,
+    h('label', { class: 'jv-warn', style: 'display:block;margin-top:8px;padding:6px' }, chk, ' I understand that changing many files quickly counts as a mass edit; unwanted or unrelated changes can get an account blocked on Commons. I am only changing files I am allowed to edit.'),
+    h('div', { style: 'margin-top:8px' }, go));
+  go.addEventListener('click', async () => {
+    const n = nameIn.value.trim(); go.disabled = true; let k = 0, bad = 0;
+    for (const x of todo) {
+      msg.textContent = 'Saving ' + (k + bad + 1) + ' / ' + todo.length + '…';
+      try {
+        const nt = replaceAuthor(await getText(x.r), cur, '{{Creator:' + n + '}}');
+        if (nt === x.t) { k++; continue; }
+        await post({ action: 'edit', pageid: x.r.id, text: nt, summary: 'Replacing author ' + (user ? 'link [[User:' + user + ']]' : 'name') + ' with {{Creator:' + n + '}} via Commons Data Weaver #DataWeaver' + projTag(x.r), nocreate: 1 }, x.r);
+        x.r.author = '{{Creator:' + n + '}}'; k++;
+      } catch (e) { bad++; msg.textContent = 'Failed on ' + x.r.name + ': ' + ((e && e.message) || e); }
+      await new Promise(res => setTimeout(res, 1500)); // one edit every 1.5 s, never a burst
+    }
+    msg.textContent = 'Done: ' + k + ' changed' + (bad ? ', ' + bad + ' failed (see the edit log)' : '') + '.'; renderLog(); if (done) done();
+  });
+}
 function openGroup(g) {
   const box = h('div'), gm = h('div', { class: 'jv-dim' }, ''), body = h('div', { class: 'jv-modal-c' }, box, gm);
   S.gMsg = gm;
@@ -649,7 +710,8 @@ function openGroup(g) {
   }
   const m = modal('Photo series · ' + g.members.length + ' photos', body, [
     h('button', { onclick: () => setSel(true) }, 'Select all'), h('button', { onclick: () => setSel(false) }, 'Select none'),
-    h('button', { onclick: linkAll, title: 'Each photo lists all the others under Other versions' }, 'Link all as Other versions'),
+    g.byAuthor ? h('button', { onclick: () => authorTool(targets(), () => { renderGrid(); render(); }), title: 'Replace [[User:…]] in |author= / |photographer= with {{Creator:…}}' }, 'Author → Creator template')
+      : h('button', { onclick: linkAll, title: 'Each photo lists all the others under Other versions' }, 'Link all as Other versions'),
     h('button', { class: 'jv-primary', onclick: async () => { await saveMany(ms()); render(); } }, 'Save series'),
     h('button', { onclick: () => { ms().forEach(r => { r.mgid = null; r.nogroup = true; }); m.remove(); renderGrid(); } }, 'Ungroup'),
     h('button', { onclick: () => m.remove() }, 'Close')], true);
@@ -1214,13 +1276,18 @@ function renderSingle(keepScroll) {
     h('button', { title: open ? 'Lock again' : 'Unlock', onclick: () => { S.catUnlock = !S.catUnlock; renderSingle(true); } }, open ? '🔓' : '🔒'),
     h('a', { href: mw.util.getUrl('Category:' + c.n), target: '_blank' }, c.n), open ? h('button', { onclick: () => { removeCat(r, c.n); renderSingle(true); } }, '×') : '')); });
   const left = h('div', { class: 'jv-cdl', 'data-sc': 'cdl' }, h('h4', {}, 'Categories'), camps.length ? pin : '', cl);
-  if (r._sugg && r._sugg.length) {
-    const have = new Set(effCats(r).map(c => c.n)), todo = r._sugg.filter(s => s.exists && !have.has(s.n));
-    left.append(h('div', { class: 'jv-sugg' }, h('b', {}, 'Suggested from Wikidata: '),
-      r._sugg.map(s => s.exists ? (have.has(s.n) ? h('span', { class: 'jv-chipb off' }, '✓ ' + s.n) : h('button', { class: 'jv-chipb', onclick: () => { addCat(r, s.n); renderSingle(true); } }, '+ ' + s.n))
-        : h('span', { class: 'jv-chipb off', title: 'No such category on Commons' }, s.n + ' (not found)')),
-      todo.length > 1 ? h('button', { class: 'jv-primary', onclick: () => { todo.forEach(s => addCat(r, s.n)); renderSingle(true); } }, 'Add all') : ''));
-  }
+  /* always-visible strip: section shortcuts, then the newly added categories and the Wikidata suggestions in red */
+  const newCats = effCats(r).filter(c => c.added), have = new Set(effCats(r).map(c => c.n));
+  const sugg = (r._sugg || []).filter(x => x.exists && !have.has(x.n));
+  const jump = (label, getEl) => h('button', { class: 'jv-jump', onclick: () => { const el = getEl(); if (!el) return; const side = el.closest('.jv-sv-side'), bar = side.querySelector('.jv-stickybar');
+    side.scrollTo({ top: el.getBoundingClientRect().top - side.getBoundingClientRect().top + side.scrollTop - bar.offsetHeight - 10, behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1200); } }, label);
+  const sbar = h('div', { class: 'jv-stickybar' },
+    h('div', { class: 'jv-jumps' }, jump('Categories', () => SV.querySelector('.jv-catbox')), jump('File details', () => SV.querySelector('.jv-cdr')), jump('Image notes', () => SV.querySelector('.jv-ann')),
+      jump('Captions', () => SV.querySelector('.jv-capb')), jump('Location', () => SV.querySelector('.jv-loc'))),
+    newCats.length || sugg.length ? h('div', { class: 'jv-redrow' },
+      newCats.length ? h('span', { class: 'jv-redlab' }, 'New: ') : '', newCats.map(c => h('span', { class: 'jv-redchip', title: 'Added, not saved yet' }, c.n, h('button', { title: 'Remove', onclick: () => { removeCat(r, c.n); renderSingle(true); } }, '×'))),
+      sugg.length ? h('span', { class: 'jv-redlab' }, 'Suggested from Wikidata: ') : '', sugg.map(x => h('button', { class: 'jv-redsug', title: 'Add this category', onclick: () => { addCat(r, x.n); renderSingle(true); } }, '+ ' + x.n)),
+      sugg.length > 1 ? h('button', { class: 'jv-redsug all', onclick: () => { sugg.forEach(x => addCat(r, x.n)); renderSingle(true); } }, 'Add all') : '') : '');
   const meta = h('table', { class: 'jv-meta' }, [
     ['Author', r.author], ['Licence', r.license], ['Observation date', r.dateObs], ['Uploaded', r.upload.slice(0, 10) + (r.uploader ? ' by ' + r.uploader : '')],
     ['Camera', r.camera], ['Dimensions', r.w + ' × ' + r.h + ' px (' + (r.w * r.h / 1e6).toFixed(1) + ' MP)'], ['File size', (r.bytes / 1048576).toFixed(2) + ' MB · ' + r.mime]
@@ -1253,7 +1320,7 @@ function renderSingle(keepScroll) {
   annS.classList.add('jv-box', 'jv-ann'); annS.dataset.sc = 'ann'; capBox.classList.add('jv-capb');
   if (ovS) { ovS.classList.add('jv-box', 'span2'); ovS.dataset.sc = 'ov'; }
   const imgPane = h('div', { class: 'jv-sv-img' + (S.imgFit === 'width' ? ' wide' : '') }, imgBar(r), h('div', { class: 'jv-imgbox', 'data-sc': 'img' }, wrap));
-  SV.append(head, h('div', { class: 'jv-sv-body' }, imgPane, h('div', { class: 'jv-sv-side' }, dep, catBox, annS, capBox, ovS || '', locS)));
+  SV.append(head, h('div', { class: 'jv-sv-body' }, imgPane, h('div', { class: 'jv-sv-side' }, sbar, dep, catBox, annS, capBox, ovS || '', locS)));
   if (!S.hideMap && !S.hideLoc) SlippyMap(mapEl, { lat: loc && loc.lat, lon: loc && loc.lon, z: loc ? 13 : 4, marker: loc, readonly: true });
   if (keepScroll) SV.querySelectorAll('[data-sc]').forEach(e => { if (keep[e.dataset.sc] != null) e.scrollTop = keep[e.dataset.sc]; });
   if (r._detSig !== catSig(r)) startDetect(r);
@@ -1306,50 +1373,169 @@ function depictsFreq() {
   }));
   return [...m.values()];
 }
-function drawCloud(el, items, onPick) {
-  el.innerHTML = '';
-  if (!items.length) return el.append(h('div', { class: 'jv-empty' }, 'No depicts tagged yet.'));
-  const W = el.clientWidth || 560, H = el.clientHeight || 420, ctx = document.createElement('canvas').getContext('2d'), placed = [];
-  const max = items[0].count, min = items[items.length - 1].count, pal = ['#0b5c44', '#0b7a5a', '#2a8f6f', '#17302b', '#4d7c6a', '#1d6f8a'];
-  items.slice(0, 80).forEach((it, k) => {
-    let fs = 12 + (max === min ? 0.5 : Math.sqrt((it.count - min) / (max - min))) * 32;
-    for (let tries = 0; tries < 5; tries++, fs *= 0.82) {
-      ctx.font = '600 ' + fs + 'px "Segoe UI",system-ui,sans-serif';
-      const w = ctx.measureText(it.label).width + 6, hh = fs * 1.2 + 2; let pos = null;
-      for (let a = 0; a < 420 && !pos; a += 0.2) {
-        const r = a * 2.2, x = W / 2 + r * Math.cos(a) * 1.5 - w / 2, y = H / 2 + r * Math.sin(a) - hh / 2;
-        if (x >= 0 && y >= 0 && x + w <= W && y + hh <= H && !placed.some(p => x < p.x + p.w && x + w > p.x && y < p.y + p.h && y + hh > p.y)) pos = { x, y, w, h: hh };
+/* ---------- Depicts overview: word art (SVG, so it exports as SVG / PNG too) ---------- */
+const WDL = {}; // labels by language: WDL.ml[Q123] = 'സിംഹം'
+const LANGS = [['en', 'English'], ['ml', 'Malayalam'], ['hi', 'Hindi'], ['ta', 'Tamil'], ['te', 'Telugu'], ['kn', 'Kannada'], ['bn', 'Bengali'], ['mr', 'Marathi'], ['gu', 'Gujarati'], ['pa', 'Punjabi'], ['ur', 'Urdu'], ['sa', 'Sanskrit'],
+  ['es', 'Spanish'], ['fr', 'French'], ['de', 'German'], ['pt', 'Portuguese'], ['it', 'Italian'], ['nl', 'Dutch'], ['ru', 'Russian'], ['ar', 'Arabic'], ['zh', 'Chinese'], ['ja', 'Japanese'], ['ko', 'Korean'], ['id', 'Indonesian'], ['sw', 'Swahili'], ['tr', 'Turkish']];
+const LANG_RE = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i;
+async function ensureLang(ids, lang) {
+  if (!lang || lang === 'en') return ensureWd(ids);
+  const c = WDL[lang] = WDL[lang] || {}; ids = [...new Set(ids)].filter(i => i && !(i in c));
+  for (let i = 0; i < ids.length; i += 50) {
+    try {
+      const d = await wd.get({ action: 'wbgetentities', ids: ids.slice(i, i + 50).join('|'), props: 'labels', languages: lang });
+      for (const id in d.entities) { const l = d.entities[id].labels && d.entities[id].labels[lang]; c[id] = l ? l.value : ''; }
+    } catch (e) {}
+  }
+}
+const labIn = (id, lang) => lang === 'en' ? ((WD[id] && WD[id].label) || '') : ((WDL[lang] && WDL[lang][id]) || '');
+const SVGNS = 'http://www.w3.org/2000/svg';
+const sv = (tag, attrs, ...kids) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs || {}) if (attrs[k] != null) e.setAttribute(k, attrs[k]); kids.flat().forEach(c => e.append(c)); return e; };
+const WA_RAMPS = { green: ['#8fcdb5', '#073b2c'], blue: ['#8db6e8', '#0f3568'], warm: ['#eda35f', '#7a2410'], grey: ['#9a9893', '#17302b'] };
+const WA_CAT = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6'];
+const WA_FONTS = { sans: '"Segoe UI",system-ui,sans-serif', serif: 'Georgia,"Times New Roman",serif', mono: 'Consolas,"Courier New",monospace', round: '"Trebuchet MS","Segoe UI",sans-serif' };
+const WA_BG = { light: '#f4f7f5', white: '#ffffff', dark: '#14211d', none: null };
+const mixHex = (a, b, t) => { const p = x => [1, 3, 5].map(i => parseInt(x.slice(i, i + 2), 16)); const A = p(a), B = p(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
+function waColor(o, it, k, n) {
+  if (o.unsaved && it.pending) return '#d64545';
+  const t = n > 1 ? 1 - k / (n - 1) : 1; // 1 = most frequent
+  if (o.scheme === 'cat') return WA_CAT[k % WA_CAT.length];
+  if (o.scheme === 'custom') return o.custom;
+  const r = WA_RAMPS[o.scheme] || WA_RAMPS.green;
+  return o.bg === 'dark' ? mixHex(mixHex(r[0], '#14211d', 0.3), mixHex(r[1], '#ffffff', 0.72), t) : mixHex(r[0], r[1], t);
+}
+function waLayout(items, o, W, H) {
+  const ctx = document.createElement('canvas').getContext('2d'), n = Math.min(items.length, o.max), list = items.slice(0, n), placed = [];
+  const max = list[0].count, min = list[n - 1].count, scale = c => max === min ? 0.55 : Math.sqrt((c - min) / (max - min)), txt = it => o.caseMode === 'upper' ? it.label.toUpperCase() : o.caseMode === 'lower' ? it.label.toLowerCase() : it.label;
+  const fnt = fs => (o.bold ? '700 ' : '400 ') + fs + 'px ' + WA_FONTS[o.font];
+  const hit = (x, y, w, hh) => placed.some(p => x < p.x + p.w && x + w > p.x && y < p.y + p.h && y + hh > p.y), inside = (x, y, w, hh) => x >= 4 && y >= 4 && x + w <= W - 4 && y + hh <= H - 4;
+  list.forEach((it, k) => {
+    const label = txt(it) + (o.counts ? ' ' + it.count : '');
+    if (o.mode === 'bubbles') {
+      const rad0 = 14 + scale(it.count) * Math.min(W, H) * 0.17;
+      for (let rad = rad0, tries = 0; tries < 6; tries++, rad *= 0.82) {
+        let pos = null;
+        for (let a = 0; a < 500 && !pos; a += 0.15) { const rr = a * 3.2, x = W / 2 + rr * Math.cos(a) * 1.35 - rad, y = H / 2 + rr * Math.sin(a) - rad; if (inside(x, y, rad * 2, rad * 2) && !placed.some(p => Math.hypot(x + rad - p.cx, y + rad - p.cy) < rad + p.rad + 3)) pos = { x, y, w: rad * 2, h: rad * 2, cx: x + rad, cy: y + rad, rad }; }
+        if (pos) { placed.push(Object.assign(pos, { it, k, label, fs: Math.max(9, Math.min(rad * 0.46, (rad * 1.7) / Math.max(4, label.length) * 1.9)) })); break; }
       }
-      if (pos) {
-        placed.push(pos);
-        const sp = h('span', { class: 'jv-cw', title: it.label + ' (' + it.id + ') · ' + it.count + ' file(s)', onclick: () => onPick(it.id) }, it.label);
-        sp.style.cssText = 'left:' + pos.x + 'px;top:' + pos.y + 'px;font-size:' + fs + 'px;line-height:' + pos.h + 'px;color:' + (it.pending ? '#b3261e' : pal[k % pal.length]);
-        el.append(sp); break;
-      }
+      return;
+    }
+    let fs = 11 + scale(it.count) * 40;
+    for (let tries = 0; tries < 6; tries++, fs *= 0.84) {
+      ctx.font = fnt(fs); const tw = ctx.measureText(label).width + 4, th = fs * 1.15, vert = o.orient === 'vertical' || (o.orient === 'mixed' && k % 4 === 3 && k > 0);
+      const w = vert ? th : tw, hh = vert ? tw : th; let pos = null;
+      for (let a = 0; a < 520 && !pos; a += 0.2) { const rr = a * 2.2, x = W / 2 + rr * Math.cos(a) * 1.5 - w / 2, y = H / 2 + rr * Math.sin(a) - hh / 2; if (inside(x, y, w, hh) && !hit(x, y, w, hh)) pos = { x, y, w, h: hh }; }
+      if (pos) { placed.push(Object.assign(pos, { it, k, label, fs, vert, cx: pos.x + pos.w / 2, cy: pos.y + pos.h / 2 })); break; }
     }
   });
+  return placed;
 }
+function waSvg(items, o, onPick) {
+  const W = 760, H = 460, svg = sv('svg', { xmlns: SVGNS, viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, role: 'img', 'aria-label': 'Depicts word art', class: 'jv-wa' });
+  const bg = WA_BG[o.bg]; if (bg) svg.append(sv('rect', { width: W, height: H, fill: bg }));
+  const ink = o.bg === 'dark' ? '#e8f2ee' : '#17302b';
+  if (!items.length) { svg.append(sv('text', { x: W / 2, y: H / 2, 'text-anchor': 'middle', fill: ink, 'font-family': WA_FONTS.sans, 'font-size': 16 }, 'No depicts tagged yet.')); return svg; }
+  const n = Math.min(items.length, o.max), tip = it => sv('title', {}, it.label + ' (' + it.id + ') · ' + it.count + ' file(s)' + (it.pending ? ' · unsaved' : ''));
+  if (o.mode === 'bars') {
+    const rows = Math.min(n, 16), rh = (H - 20) / rows, lw = 230, mx = items[0].count;
+    items.slice(0, rows).forEach((it, k) => {
+      const y = 10 + k * rh, w = (W - lw - 60) * it.count / mx, g = sv('g', { style: 'cursor:pointer' }, tip(it));
+      g.append(sv('text', { x: lw - 8, y: y + rh / 2 + 4, 'text-anchor': 'end', fill: ink, 'font-family': WA_FONTS[o.font], 'font-size': Math.min(14, rh * 0.62), 'font-weight': o.bold ? 700 : 400 }, (o.caseMode === 'upper' ? it.label.toUpperCase() : o.caseMode === 'lower' ? it.label.toLowerCase() : it.label).slice(0, 34)),
+        sv('rect', { x: lw, y: y + 2, width: Math.max(2, w), height: rh - 4, rx: 3, fill: waColor(o, it, k, rows) }), sv('text', { x: lw + w + 6, y: y + rh / 2 + 4, fill: ink, 'font-family': WA_FONTS.sans, 'font-size': 12 }, String(it.count)));
+      g.addEventListener('click', () => onPick(it.id)); svg.append(g);
+    });
+    return svg;
+  }
+  const placed = waLayout(items, o, W, H);
+  placed.forEach(p => {
+    const col = waColor(o, p.it, p.k, placed.length), g = sv('g', { style: 'cursor:pointer' }, tip(p.it));
+    if (o.mode === 'bubbles') {
+      g.append(sv('circle', { cx: p.cx, cy: p.cy, r: p.rad, fill: col, 'fill-opacity': 0.9, stroke: o.bg === 'dark' ? '#14211d' : '#fff', 'stroke-width': 2 }));
+      const words = p.label.split(' '), lines = [], max = Math.max(5, Math.floor(p.rad * 1.7 / (p.fs * 0.56)));
+      words.forEach(w => { const l = lines[lines.length - 1]; if (l && (l + ' ' + w).length <= max) lines[lines.length - 1] = l + ' ' + w; else lines.push(w); });
+      const ls = lines.slice(0, 3); ls.forEach((t, i) => g.append(sv('text', { x: p.cx, y: p.cy + (i - (ls.length - 1) / 2) * p.fs * 1.1 + p.fs * 0.35, 'text-anchor': 'middle', fill: '#fff', 'font-family': WA_FONTS[o.font], 'font-size': p.fs, 'font-weight': o.bold ? 700 : 400, 'paint-order': 'stroke', stroke: 'rgba(0,0,0,.25)', 'stroke-width': 0.6 }, t.length > max + 2 ? t.slice(0, max) + '…' : t)));
+    } else {
+      const t = sv('text', { x: p.cx, y: p.cy + p.fs * 0.33, 'text-anchor': 'middle', fill: col, 'font-family': WA_FONTS[o.font], 'font-size': p.fs, 'font-weight': o.bold ? 700 : 400 }, p.label);
+      if (p.vert) t.setAttribute('transform', 'rotate(-90 ' + p.cx + ' ' + p.cy + ')'); g.append(t);
+    }
+    g.addEventListener('click', () => onPick(p.it.id)); svg.append(g);
+  });
+  return svg;
+}
+const svgText = svg => { const c = svg.cloneNode(true); c.removeAttribute('class'); return '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(c); };
+function svgToPng(svg, scale) {
+  return new Promise((res, rej) => {
+    const W = +svg.getAttribute('width'), H = +svg.getAttribute('height'), url = URL.createObjectURL(new Blob([svgText(svg)], { type: 'image/svg+xml;charset=utf-8' })), img = new Image();
+    img.onload = () => { const c = document.createElement('canvas'); c.width = W * scale; c.height = H * scale; const x = c.getContext('2d'); x.scale(scale, scale); x.drawImage(img, 0, 0, W, H); URL.revokeObjectURL(url); c.toBlob(b => b ? res(b) : rej(new Error('PNG failed')), 'image/png'); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Could not draw the picture')); }; img.src = url;
+  });
+}
+function dlBlob(name, blob) { const a = h('a', { href: URL.createObjectURL(blob), download: name }); document.body.append(a); a.click(); a.remove(); }
 async function depictsModal() {
   if (!S.recs.length) return setStatus('Load files first.');
   const fr = depictsFreq(); await ensureWd(fr.map(f => f.id));
-  fr.forEach(f => { f.label = labelOf(f.id); });
-  fr.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-  const total = S.recs.length, tagged = S.recs.filter(r => effDepicts(r).length).length, cloud = h('div', { class: 'jv-cloud' });
-  const tbl = fr.length ? h('table', { class: 'jv-ft' }, h('tr', {}, h('th', {}, '#'), h('th', {}, 'Depicts'), h('th', {}, 'Files'), h('th', {}, '')),
-    fr.map((f, i) => h('tr', {}, h('td', {}, i + 1),
-      h('td', {}, h('a', { href: 'https://www.wikidata.org/wiki/' + f.id, target: '_blank' }, f.label), h('small', {}, ' ' + f.id), f.pending ? h('small', { class: 'jv-unsaved' }, ' · ' + f.pending + ' unsaved') : ''),
-      h('td', {}, f.count),
-      h('td', {}, h('div', { class: 'jv-fbar' }, h('div', { style: 'width:' + Math.round(f.count / fr[0].count * 100) + '%' }), h('span', {}, Math.round(f.count / total * 100) + '%')),
-        h('button', { title: 'Show only these files', onclick: () => { m.remove(); setDepFilter(f.id); } }, '⌕'))))) : h('div', { class: 'jv-dim' }, 'No depicts tagged yet.');
-  const csv = () => {
-    const rows = ['rank,wikidata_id,label,files,percent_of_files,files_with_unsaved'].concat(fr.map((f, i) => [i + 1, f.id, '"' + f.label.replace(/"/g, '""') + '"', f.count, (f.count / total * 100).toFixed(1), f.pending].join(',')));
-    download(outName('csv', 'depicts-frequency'), 'text/csv', '\ufeff' + rows.join('\n'));
+  const total = S.recs.length, tagged = S.recs.filter(r => effDepicts(r).length).length, L = { a: 'en', b: '' };
+  const o = Object.assign({ mode: 'cloud', scheme: 'green', custom: '#0b7a5a', bg: 'light', font: 'sans', orient: 'mixed', caseMode: 'as', max: 80, bold: true, counts: false, unsaved: true }, (() => { try { return JSON.parse(localStorage.getItem('dw.wordart') || '{}'); } catch (e) { return {}; } })());
+  const saveO = () => { try { localStorage.setItem('dw.wordart', JSON.stringify(o)); } catch (e) {} };
+  const lab = id => { const a = labIn(id, L.a) || labIn(id, 'en') || id, b = L.b ? labIn(id, L.b) : ''; return b && b !== a ? a + ' / ' + b : a; };
+  let art = h('div', { class: 'jv-waview' }); const tblBox = h('div', { class: 'jv-dlist' });
+  const sorted = () => { fr.forEach(f => { f.label = lab(f.id); }); return fr.slice().sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)); };
+  let cur = [];
+  const draw = () => {
+    cur = sorted(); art.innerHTML = ''; art.append(waSvg(cur, o, id => { m.remove(); setDepFilter(id); }));
+    tblBox.innerHTML = ''; tblBox.append(cur.length ? h('table', { class: 'jv-ft' }, h('tr', {}, h('th', {}, '#'), h('th', {}, 'Depicts'), h('th', {}, 'Files'), h('th', {}, '')),
+      cur.map((f, i) => h('tr', {}, h('td', {}, i + 1),
+        h('td', {}, h('a', { href: 'https://www.wikidata.org/wiki/' + f.id, target: '_blank' }, f.label), h('small', {}, ' ' + f.id), f.pending ? h('small', { class: 'jv-unsaved' }, ' · ' + f.pending + ' unsaved') : ''),
+        h('td', {}, f.count),
+        h('td', {}, h('div', { class: 'jv-fbar' }, h('div', { style: 'width:' + Math.round(f.count / cur[0].count * 100) + '%' }), h('span', {}, Math.round(f.count / total * 100) + '%')),
+          h('button', { title: 'Show only these files', onclick: () => { m.remove(); setDepFilter(f.id); } }, '⌕'))))) : h('div', { class: 'jv-dim' }, 'No depicts tagged yet.'));
   };
-  const m = modal('Depicts overview', h('div', { class: 'jv-modal-c' },
+  /* language row (top right): English is the default, a second language can be shown next to it; type any code or pick from the list */
+  const dlist = h('datalist', { id: 'jv-langs' }, LANGS.map(x => h('option', { value: x[0] }, x[1])));
+  const nameOf = c => (LANGS.find(x => x[0] === c.toLowerCase()) || [])[1] || '';
+  const langIn = (key, ph, val) => {
+    const hint = h('small', { class: 'jv-dim' }, nameOf(val));
+    const inp = h('input', { type: 'text', list: 'jv-langs', placeholder: ph, value: val, class: 'jv-langin', 'aria-label': ph, spellcheck: false, autocomplete: 'off' });
+    const apply = async () => {
+      const v = inp.value.trim().toLowerCase(); if (v === L[key]) return;
+      if (v && !LANG_RE.test(v)) { inp.classList.add('bad'); hint.textContent = 'not a language code'; return; }
+      inp.classList.remove('bad'); hint.textContent = nameOf(v); L[key] = v; if (v) { hint.textContent = (nameOf(v) || v) + ' …'; await ensureLang(fr.map(f => f.id), v); hint.textContent = nameOf(v) || v; } draw();
+    };
+    inp.addEventListener('change', apply); inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); apply(); } });
+    return h('span', { class: 'jv-langf' }, inp, hint);
+  };
+  const langRow = h('div', { class: 'jv-langrow' }, dlist, h('span', {}, 'Depicts language'), langIn('a', 'en', 'en'), h('span', { class: 'jv-dim' }, '+ second'), langIn('b', 'e.g. ml', ''));
+  /* word art settings (below the picture) */
+  const sel = (key, opts, after) => h('select', { onchange: e => { o[key] = e.target.value; saveO(); if (after) after(); draw(); } }, opts.map(x => h('option', { value: x[0], selected: o[key] === x[0] }, x[1])));
+  const chk = (key, text) => h('label', { class: 'jv-inl' }, h('input', { type: 'checkbox', checked: !!o[key], onchange: e => { o[key] = e.target.checked; saveO(); draw(); } }), ' ' + text);
+  const colorIn = h('input', { type: 'color', value: o.custom, title: 'Custom colour', oninput: e => { o.custom = e.target.value; o.scheme = 'custom'; schemeSel.value = 'custom'; saveO(); draw(); } });
+  const schemeSel = sel('scheme', [['green', 'Greens'], ['blue', 'Blues'], ['warm', 'Warm'], ['grey', 'Grey'], ['cat', 'Many colours'], ['custom', 'My colour']]);
+  const maxIn = h('input', { type: 'range', min: 10, max: 150, step: 5, value: o.max, title: 'Number of items', oninput: e => { o.max = +e.target.value; mv.textContent = o.max; saveO(); draw(); } }), mv = h('b', {}, o.max);
+  const cfg = h('div', { class: 'jv-wacfg' },
+    h('label', {}, 'Style ', sel('mode', [['cloud', 'Word cloud'], ['bubbles', 'Bubbles'], ['bars', 'Bars']])),
+    h('label', {}, 'Colours ', schemeSel, colorIn), h('label', {}, 'Background ', sel('bg', [['light', 'Light'], ['white', 'White'], ['dark', 'Dark'], ['none', 'Transparent']])),
+    h('label', {}, 'Font ', sel('font', [['sans', 'Sans'], ['serif', 'Serif'], ['mono', 'Mono'], ['round', 'Rounded']])),
+    h('label', {}, 'Words ', sel('orient', [['mixed', 'Some upright'], ['horizontal', 'Horizontal'], ['vertical', 'All upright']])),
+    h('label', {}, 'Letters ', sel('caseMode', [['as', 'As written'], ['upper', 'UPPER'], ['lower', 'lower']])),
+    h('label', {}, 'Items ', maxIn, ' ', mv), chk('bold', 'Bold'), chk('counts', 'Show counts'), chk('unsaved', 'Unsaved in red'));
+  /* downloads */
+  const base = () => 'depicts-' + o.mode;
+  const exp = {
+    csv: async () => { const rows = ['rank,wikidata_id,label,' + (L.b ? 'label_' + L.a + ',label_' + L.b + ',' : '') + 'files,percent_of_files,files_with_unsaved'].concat(cur.map((f, i) => [i + 1, f.id, '"' + f.label.replace(/"/g, '""') + '"'].concat(L.b ? ['"' + (labIn(f.id, L.a) || labIn(f.id, 'en')).replace(/"/g, '""') + '"', '"' + labIn(f.id, L.b).replace(/"/g, '""') + '"'] : [], [f.count, (f.count / total * 100).toFixed(1), f.pending]).join(','))); download(outName('csv', 'depicts-frequency'), 'text/csv', '﻿' + rows.join('\n')); },
+    json: async () => download(outName('json', 'depicts-frequency'), 'application/json', JSON.stringify(cur.map((f, i) => ({ rank: i + 1, id: f.id, label: f.label, files: f.count, unsaved: f.pending })), null, 1)),
+    svg: async () => download(outName('svg', base()), 'image/svg+xml', svgText(art.firstChild)),
+    png: async () => dlBlob(outName('png', base()), await svgToPng(art.firstChild, 2)),
+    txt: async () => download(outName('txt', 'depicts-words'), 'text/plain', cur.map(f => (f.label + '\n').repeat(Math.max(1, f.count)).trim()).join('\n'))
+  };
+  const dlSel2 = h('select', { class: 'jv-dlsel', title: 'Download the overview', onchange: async e => {
+    const v = e.target.value; e.target.value = ''; if (!v) return;
+    try { if (v === 'all') { for (const k of ['csv', 'json', 'svg', 'png', 'txt']) { await exp[k](); await new Promise(r => setTimeout(r, 350)); } setStatus('Downloaded CSV, JSON, SVG, PNG and TXT.'); } else await exp[v](); } catch (er) { setStatus('Download failed: ' + ((er && er.message) || er)); }
+  } }, h('option', { value: '' }, '⬇ Download…'), [['csv', 'CSV · table'], ['svg', 'SVG · picture'], ['png', 'PNG · picture'], ['json', 'JSON · data'], ['txt', 'TXT · words repeated by count (for other word-cloud tools)'], ['all', 'All formats']].map(x => h('option', { value: x[0] }, x[1])));
+  const m = modal('Depicts overview', h('div', { class: 'jv-modal-c' }, langRow,
     h('div', { class: 'jv-dim' }, tagged + ' of ' + total + ' files have depicts · ' + (total - tagged) + ' missing · ' + fr.length + ' distinct items. Click a word to filter the grid. Red = includes unsaved changes.'),
-    h('div', { class: 'jv-dc' }, cloud, h('div', { class: 'jv-dlist' }, tbl))), [
-    h('button', { onclick: csv }, 'Download CSV'), h('button', { class: 'jv-primary', onclick: () => m.remove() }, 'Close')], true);
-  setTimeout(() => drawCloud(cloud, fr, id => { m.remove(); setDepFilter(id); }), 30);
+    h('div', { class: 'jv-dc' }, art, tblBox), cfg), [
+    dlSel2, h('button', { class: 'jv-primary', onclick: () => m.remove() }, 'Close')], true);
+  draw();
 }
 function csvModal() {
   let nm = '';
@@ -1397,7 +1583,7 @@ const starSel = mkSel([['off', '★ Stars: all files'], ['group', '★ Starred f
 starSel.title = 'Show all files, starred files first, only starred files, or only files that are not starred';
 const secBox = h('span', { style: 'display:none', title: 'Max seconds between shots (Auto by time)' },
   h('input', { type: 'number', min: '1', value: '60', style: 'width:56px', onchange: e => { S.gsec = Math.max(1, +e.target.value || 60); renderGrid(); } }), ' s');
-const serSel = mkSel([['manual', 'Grouped (Manual)'], ['none', 'Ungrouped (All files)'], ['time', 'Auto by time'], ['name', 'Auto by file name']], 'manual', v => { S.gmode = v; secBox.style.display = v === 'time' ? '' : 'none'; renderGrid(); });
+const serSel = mkSel([['manual', 'Grouped (Manual)'], ['none', 'Ungrouped (All files)'], ['time', 'Auto by time'], ['name', 'Auto by file name'], ['author', 'Grouped by Author']], 'manual', v => { S.gmode = v; secBox.style.display = v === 'time' ? '' : 'none'; renderGrid(); });
 const dlSel = h('select', { title: 'Download the file data', onchange: e => { const v = e.target.value; e.target.value = ''; if (v) { const k = v.split(':'); doExport(k[0], k[1]); } } },
   h('option', { value: '' }, '⬇ Download'),
   ['json', 'csv'].map(k => h('optgroup', { label: k.toUpperCase() }, [['all', 'All files'], ['filtered', 'Filtered'], ['selected', 'Selected'], ['starred', 'Starred']].map(x => h('option', { value: k + ':' + x[0] }, k.toUpperCase() + ' · ' + x[1])))));
@@ -1411,7 +1597,7 @@ const selInvert = () => { S.view.forEach(r => S.sel.has(r.id) ? S.sel.delete(r.i
 const tools = h('div', { class: 'jv-tools' }, toggle,
   h('span', { class: 'jv-selg' }, 'Select', h('button', { onclick: selAll, title: 'Select all shown files (A)' }, 'All'), h('button', { onclick: selNone, title: 'Clear the selection (Esc)' }, 'None'),
     h('button', { onclick: selInvert, title: 'Select what is not selected, among the shown files (I)' }, 'Invert')),
-  h('span', {}, 'Sort'), mkSel([['name', 'Filename'], ['author', 'Author'], ['license', 'Licence'], ['dateObs', 'Observation date'], ['upload', 'Upload date'], ['camera', 'Camera'], ['resolution', 'Resolution'], ['size', 'File size'], ['starred', 'Starred']], 'name', v => { S.sort = v; renderGrid(); }),
+  h('span', {}, 'Sort'), mkSel([['name', 'Filename'], ['author', 'Author'], ['license', 'Licence'], ['dateObs', 'Observation date'], ['upload', 'Upload date'], ['camera', 'Camera'], ['format', 'File format'], ['resolution', 'Resolution'], ['size', 'File size'], ['starred', 'Starred']], 'name', v => { S.sort = v; renderGrid(); }),
   mkSel([['1', '↑ Asc'], ['-1', '↓ Desc']], '1', v => { S.dir = +v; renderGrid(); }),
   starSel, h('span', {}, 'Filter'), depSel, h('span', {}, 'Series'), serSel, secBox,
   h('input', { type: 'search', placeholder: 'Filter…', oninput: e => { S.fText = e.target.value; renderGrid(); } }), h('span', { style: 'flex:1' }),
@@ -1448,7 +1634,7 @@ const panel = h('aside', { class: 'jv-panel' }, h('div', { class: 'jv-pbody' },
   h('div', { class: 'jv-warnnote' }, '⚠ These actions change ALL selected files at once. Check the Selected count first. Nothing is saved until you press Save.'),
   h('div', {}, 'Selected: ', h('b', { id: 'jv-selcount', class: 'jv-selpill' }, '0')),
   h('div', { class: 'jv-btns' },
-    h('button', { onclick: () => { S.sel.clear(); S.recs.filter(isStar).forEach(r => S.sel.add(r.id)); touch(S.recs); }, title: 'Select the starred files' }, 'Select starred'),
+    h('button', { onclick: () => { const l = selected(); S.sel.clear(); touch(l); setStatus('Selection cleared.'); }, title: 'Unselect all files' }, 'Unselect all'),
     h('button', { onclick: () => { const l = need(); l.forEach(r => { if (!isStar(r)) toggleStar(r); }); } }, '★ Star'),
     h('button', { onclick: () => { const l = need(); l.forEach(r => { if (isStar(r)) toggleStar(r); }); } }, '☆ Unstar'),
     h('button', { onclick: groupSelected, title: 'Group the selected photos as one series (G)' }, '▣ Group (G)'),
@@ -1482,7 +1668,7 @@ renderGrid();
 
 function keysModal() {
   const rows = [['A', 'Select all files in the open window (the grid, or an open series)'], ['G', 'Group the selected files as one series'], ['U', 'Ungroup the selected files'],
-    ['I', 'Invert the selection among the shown files'], ['Space', 'Star / unstar the selected files (in the one-by-one view: the open file)'], ['B', 'Show or hide the batch edit panel'],
+    ['I', 'Invert the selection among the shown files'], ['Space or S', 'Star / unstar the selected files (in the one-by-one view: the open file)'], ['B', 'Show or hide the batch edit panel'],
     ['Esc', 'Clear the selection (in an open series or the one-by-one view, Esc again closes it)'], ['← / →', 'Previous / next file in the one-by-one view'],
     ['P', 'One-by-one view: add {{Personality rights}} to the open file'], ['H', 'One-by-one view: flag the open file as needing help (needs a project with a help category)'], ['Ctrl+M', 'In any text field: switch between the system keyboard (default) and your typing tool from the gear ⚙ (this one works while typing)'], ['?', 'Show this list']];
   const m = modal('Keyboard shortcuts', h('div', { class: 'jv-modal-c' }, h('table', { class: 'jv-meta' }, rows.map(x => h('tr', {}, h('th', {}, h('kbd', {}, x[0])), h('td', {}, x[1])))),
@@ -1505,16 +1691,16 @@ document.addEventListener('keydown', e => {
   if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
   if (single && !top) {
     if (k === 'ArrowRight') step(1); else if (k === 'ArrowLeft') step(-1);
-    else if (k === ' ' || k === 'Spacebar') { e.preventDefault(); if (el && el.tagName === 'BUTTON') el.blur(); toggleStar(S.cur); renderSingle(true); }
+    else if (k === ' ' || k === 'Spacebar' || k.toLowerCase() === 's') { e.preventDefault(); if (el && el.tagName === 'BUTTON') el.blur(); toggleStar(S.cur); renderSingle(true); }
     else if (k.toLowerCase() === 'p') { e.preventDefault(); addPR(S.cur).then(() => renderSingle(true)); }
     else if (k.toLowerCase() === 'h') { e.preventDefault(); toggleHelp(S.cur); renderSingle(true); }
     return;
   }
   if (top && !(gm && top === gm.m)) return; // other dialogs keep their own keys
   const c = k.toLowerCase();
-  if (k === ' ' || k === 'Spacebar') {
+  if (k === ' ' || k === 'Spacebar' || c === 's') {
     e.preventDefault(); if (el && el.tagName === 'BUTTON') el.blur();
-    const l = selected(); if (!l.length) return setStatus('Select files first, then press Space to star them.');
+    const l = selected(); if (!l.length) return setStatus('Select files first, then press Space or S to star them.');
     const allOn = l.every(isStar); l.forEach(r => { if (allOn ? isStar(r) : !isStar(r)) toggleStar(r); });
     setStatus((allOn ? 'Unstarred ' : 'Starred ') + l.length + ' file(s).'); return;
   }
@@ -1651,13 +1837,16 @@ mw.util.addCSS(`
 .jv-tn{position:absolute;left:0;right:0;bottom:0;background:rgba(23,48,43,.88);color:#fff;font-size:11px;padding:2px 5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;z-index:2}
 .jv-tn .r{color:#ffb4ae}
 .jv-dc{display:flex;gap:12px;align-items:flex-start}
-.jv-cloud{flex:1.5;min-width:0;height:420px;position:relative;overflow:hidden;background:#f4f7f5;border:1px solid #cdd8d2}
-.jv-cw{position:absolute;font-weight:600;white-space:nowrap;cursor:pointer;font-family:"Segoe UI",system-ui,sans-serif}.jv-cw:hover{text-decoration:underline}
-.jv-dlist{flex:1;min-width:280px;max-height:420px;overflow:auto}
+.jv-waview{flex:1.5;min-width:0;border:1px solid #cdd8d2;background:repeating-conic-gradient(#e9eeeb 0 25%,#fff 0 50%) 0 0/16px 16px}.jv-waview svg{display:block;width:100%;height:auto}
+.jv-langrow{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin:-4px 0 8px}.jv-langf{display:inline-flex;gap:4px;align-items:center}
+#jv-root input.jv-langin{width:92px;font:inherit;padding:3px 6px;border:1px solid #b7c5bd;border-radius:3px}#jv-root input.jv-langin.bad{border-color:#d64545;background:#fdeceb}
+.jv-wacfg{display:flex;gap:10px 14px;flex-wrap:wrap;align-items:center;margin-top:10px;padding:8px;background:#f4f7f5;border:1px solid #cdd8d2;border-radius:4px;font-size:13px}
+.jv-wacfg select,.jv-dlsel{font:inherit;padding:2px 4px;border:1px solid #b7c5bd;border-radius:3px}.jv-inl{display:inline-flex;gap:3px;align-items:center}.jv-wacfg input[type=color]{width:28px;height:24px;padding:0;border:1px solid #b7c5bd;vertical-align:middle}
+.jv-dlist{flex:1;min-width:280px;max-height:460px;overflow:auto}
 .jv-ft{width:100%;border-collapse:collapse;font-size:13px}.jv-ft th{text-align:left;color:#5d7068;font-weight:500;border-bottom:1px solid #cdd8d2;padding:3px 4px}.jv-ft td{padding:3px 4px;border-bottom:1px solid #edf1ee;vertical-align:middle}
 .jv-ft td:last-child{display:flex;gap:6px;align-items:center}.jv-ft button{padding:0 6px!important}
 .jv-fbar{flex:1;position:relative;height:16px;background:#e4ebe7;min-width:70px}.jv-fbar div{height:100%;background:#4fb58d}.jv-fbar span{position:absolute;left:4px;top:0;font-size:11px;line-height:16px}
-@media(max-width:900px){.jv-dc{flex-direction:column}.jv-cloud{width:100%;flex:none}.jv-grid{grid-template-columns:repeat(3,1fr)}.jv-sv-body{flex-direction:column}}
+@media(max-width:900px){.jv-dc{flex-direction:column}.jv-waview{width:100%;flex:none}.jv-grid{grid-template-columns:repeat(3,1fr)}.jv-sv-body{flex-direction:column}}
 @media(max-width:560px){.jv-grid{grid-template-columns:repeat(2,1fr)}}
 .jv-brandw{display:flex;align-items:center;gap:8px;margin-right:6px}
 .jv-logo{height:38px;width:auto;background:#fff;border-radius:6px;padding:2px;display:block}
@@ -1728,6 +1917,14 @@ mw.util.addCSS(`
 .jv-sv-side h4{margin:4px 0 6px}
 .jv-sv-side .jv-dchip{font-size:16px}
 .jv-sv-side>.jv-box.jv-ann,.jv-sv-side>.jv-box.jv-capb{max-height:none}
+.jv-sv-side>.jv-stickybar{grid-column:1/-1;position:sticky;top:-8px;z-index:5;margin:-8px -8px 0;padding:6px 8px;background:#e6ece8;border-bottom:1px solid #cdd8d2;box-shadow:0 2px 4px rgba(0,0,0,.08)}
+.jv-jumps{display:flex;gap:4px;flex-wrap:wrap}.jv-single button.jv-jump{padding:1px 9px;font-size:13px;border-radius:12px;background:#fff}
+.jv-redrow{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:5px;font-size:13px}
+.jv-redlab{color:#a4161a;font-weight:600}
+.jv-redchip,#jv-root button.jv-redsug,.jv-single button.jv-redsug{background:#fdeceb;border:1px solid #d64545;color:#a4161a;border-radius:12px;padding:1px 9px}
+.jv-single .jv-redchip button,#jv-root .jv-redchip button{border:0!important;background:none!important;color:#a4161a!important;padding:0 0 0 5px!important}
+.jv-single button.jv-redsug:hover,#jv-root button.jv-redsug:hover{background:#f9d0cd}#jv-root button.jv-redsug.all,.jv-single button.jv-redsug.all{background:#d64545;color:#fff}
+.flash{outline:3px solid #eda100;transition:outline .3s}
 .jv-projtag{font-size:12px;background:#ffe9a8;border:1px solid #d99a00;color:#5c4200;border-radius:10px;padding:0 8px}
 @media(max-width:900px){.jv-sv-body{flex-direction:column;overflow:auto}.jv-sv-side{grid-template-columns:1fr;max-width:none;min-width:0;overflow:visible}.jv-cd{grid-template-columns:1fr}.jv-cdl,.jv-cdr{max-height:none}}
 kbd{display:inline-block;min-width:26px;text-align:center;border:1px solid #b7c5bd;border-bottom-width:2px;border-radius:4px;background:#f4f7f5;padding:0 6px;font:600 12px monospace}
@@ -1740,7 +1937,7 @@ function open() {
 }
 /* The web app is always open: there is no Tools-menu link or overlay toggle. */
 window.DW = window.DW || {};
-DW.core = {parseListProjects, sumTail, helpCat, projName,  S, h, api, wd, root, WD, labelOf, ensureWd, normCat, effLoc, effDepicts, download, outName, safeName, stampNow, setStatus, openSingle, loadTitles, listCategory };
+DW.core = {authVals, replaceAuthor, waSvg, svgText, parseListProjects, sumTail, helpCat, projName,  S, h, api, wd, root, WD, labelOf, ensureWd, normCat, effLoc, effDepicts, download, outName, safeName, stampNow, setStatus, openSingle, loadTitles, listCategory };
 document.dispatchEvent(new CustomEvent('dw:core'));
 open();
 

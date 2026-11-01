@@ -432,3 +432,97 @@ def test_thumbnails_from_thumb_wikimedia_org_are_allowed_by_the_security_policy_
     # it loaded from the thumbnail host itself, not through the retry fallback
     assert page.locator(".jv-card img").first.get_attribute("src").startswith("https://thumb.wikimedia.org/")
     ctx.close()
+
+
+def test_sort_by_file_format_unselect_all_and_s_key(stack):
+    ctx, page, problems = new_page(stack, logged_in=False)
+    page.goto(stack["base"] + "/")
+    load_category(page)
+    opts = page.evaluate("() => [...document.querySelectorAll('.jv-tools select option')].map(o => o.textContent)")
+    assert "File format" in opts, opts
+    page.locator(".jv-tools select").filter(has_text="File format").select_option("format")
+    assert page.locator(".jv-card").count() == 2
+    page.locator(".jv-card").first.click()
+    page.keyboard.press("s")                                   # S stars like Space
+    assert "starred" in page.locator(".jv-card").first.get_attribute("class")
+    page.keyboard.press("b")
+    assert page.get_by_role("button", name="Select starred").count() == 0
+    page.get_by_role("button", name="Unselect all").click()
+    assert page.evaluate("() => DW.core.S.sel.size") == 0
+    assert not problems, problems
+    ctx.close()
+
+
+def test_one_by_one_strip_stays_visible_with_red_new_and_suggested_categories(stack):
+    ctx, page, problems = new_page(stack, logged_in=False)
+    page.goto(stack["base"] + "/")
+    load_category(page)
+    open_single(page)
+    page.evaluate("() => { const r = DW.core.S.cur; r.pend.addC.add('Brand new cat'); r._sugg = [{ n: 'Panthera leo', exists: true }, { n: 'Nope', exists: false }]; r._detSig = null; }")
+    page.evaluate("() => { const r = DW.core.S.cur; r._detSig = 'x'; }")
+    page.keyboard.press("Escape"); open_single(page)
+    page.evaluate("() => { const r = DW.core.S.cur; r.pend.addC.add('Brand new cat'); r._sugg = [{ n: 'Panthera leo', exists: true }]; }")
+    page.keyboard.press("ArrowRight"); page.keyboard.press("ArrowLeft")
+    page.evaluate("() => { const r = DW.core.S.cur; r._detSig = null; }")
+    bar = page.locator(".jv-stickybar")
+    expect(bar).to_be_visible()
+    for name in ["Categories", "File details", "Image notes", "Captions", "Location"]:
+        expect(bar.get_by_role("button", name=name)).to_be_visible()
+    side = page.locator(".jv-sv-side")
+    side.evaluate("e => { e.scrollTop = e.scrollHeight; }")
+    top_side = side.evaluate("e => e.getBoundingClientRect().top")
+    top_bar = bar.evaluate("e => e.getBoundingClientRect().top")
+    assert abs(top_bar - top_side) < 14, (top_bar, top_side)   # still pinned after scrolling to the bottom
+    color = page.locator(".jv-redsug").first.evaluate("e => getComputedStyle(e).color")
+    assert color.startswith("rgb(164, 22, 26)"), color
+    bar.get_by_role("button", name="Captions").click()
+    assert not problems, problems
+    ctx.close()
+
+
+def test_group_by_author_has_creator_tool_and_no_link_all(stack):
+    ctx, page, problems = new_page(stack, logged_in=False)
+    page.goto(stack["base"] + "/")
+    load_category(page)
+    page.locator(".jv-tools select").filter(has_text="Grouped by Author").select_option("author")
+    assert page.locator(".jv-gcard").count() == 1                # both files are by Anna
+    page.locator(".jv-gcard .jv-open").click()
+    expect(page.get_by_role("button", name="Author → Creator template")).to_be_visible()
+    assert page.get_by_role("button", name="Link all as Other versions").count() == 0
+    # wikitext helpers
+    t = "{{Information\n|description=x\n|author=[[User:Manojk|Manojk]]\n|photographer = [[User:Manojk|Manojk]]\n|permission=\n}}"
+    got = page.evaluate("t => [DW.core.authVals(t), DW.core.replaceAuthor(t, '[[User:Manojk|Manojk]]', '{{Creator:Manoj Karingamadathil}}')]", t)
+    assert [v["name"] for v in got[0]] == ["author", "photographer"]
+    assert "|author={{Creator:Manoj Karingamadathil}}\n" in got[1] and "|photographer = {{Creator:Manoj Karingamadathil}}\n" in got[1], got[1]
+    assert "[[User:" not in got[1] and "|description=x" in got[1]
+    # the tool refuses when the authors differ
+    page.evaluate("""() => { const g = Object.values(DW.core.S.groups)[0]; g.members.forEach((r, i) => { r._t = i; }); }""")
+    page.get_by_role("button", name="Author → Creator template").click()
+    expect(page.locator(".jv-modal").last).to_contain_text("Current author in all 2 file(s)")
+    expect(page.locator(".jv-modal").last.get_by_text("I understand")).to_be_visible()
+    assert page.locator(".jv-modal").last.get_by_role("button", name="Replace in 2 file(s)").is_disabled()
+    assert not problems, problems
+    ctx.close()
+
+
+def test_depicts_overview_modes_downloads_and_language(stack):
+    ctx, page, problems = new_page(stack, logged_in=False)
+    page.goto(stack["base"] + "/")
+    load_category(page)
+    page.evaluate("""() => { const S = DW.core.S; DW.core.WD.Q1 = { label: 'Lion', desc: '' }; DW.core.WD.Q2 = { label: 'Tiger', desc: '' };
+      S.recs[0].dep = ['Q1', 'Q2']; S.recs[1].dep = ['Q1']; S.recs.forEach(r => { r.pend.addD.add('Q1'); }); }""")
+    page.get_by_role("button", name="Depicts overview").click()
+    modal = page.locator(".jv-modal").last
+    expect(modal.locator("svg.jv-wa")).to_be_visible()
+    expect(modal.get_by_text("Depicts language")).to_be_visible()
+    assert modal.locator("input.jv-langin").first.input_value() == "en"
+    for mode, sel in [("bubbles", "circle"), ("bars", "rect"), ("cloud", "text")]:
+        modal.locator(".jv-wacfg select").first.select_option(mode)
+        assert modal.locator("svg.jv-wa " + sel).count() >= 1, mode
+    opts = modal.locator("select.jv-dlsel option").all_inner_texts()
+    for want in ["CSV", "SVG", "PNG", "All formats"]:
+        assert any(want in o for o in opts), (want, opts)
+    svg = page.evaluate("() => DW.core.svgText(document.querySelector('svg.jv-wa'))")
+    assert svg.startswith("<?xml") and "xmlns=" in svg
+    assert not problems, problems
+    ctx.close()
