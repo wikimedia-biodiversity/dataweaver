@@ -1393,22 +1393,42 @@ const SVGNS = 'http://www.w3.org/2000/svg';
 const sv = (tag, attrs, ...kids) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs || {}) if (attrs[k] != null) e.setAttribute(k, attrs[k]); kids.flat().forEach(c => e.append(c)); return e; };
 const WA_RAMPS = { green: ['#8fcdb5', '#073b2c'], blue: ['#8db6e8', '#0f3568'], warm: ['#eda35f', '#7a2410'], grey: ['#9a9893', '#17302b'] };
 const WA_CAT = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6'];
+const WA_SHAPES = [['rectangle', '▬ Rectangle'], ['circle', '● Circle'], ['heart', '♥ Heart'], ['star', '★ Star'], ['diamond', '◆ Diamond'], ['triangle', '▲ Triangle'], ['cloud', '☁ Cloud']];
+const WA_LISTS = { sun: ['#ff6f00', '#f57f17', '#e65100', '#bf360c', '#ff8f00', '#ffb300'], sea: ['#006064', '#00838f', '#0097a7', '#00acc1', '#0277bd', '#01579b'], rainbow: ['#d32f2f', '#f57c00', '#fbc02d', '#388e3c', '#1976d2', '#7b1fa2'],
+  earth: ['#4e342e', '#5d4037', '#6d4c41', '#795548', '#8d6e63', '#a1887f'], night: ['#8ea2ff', '#b58cff', '#6fd3ff', '#9be7c4', '#ffd27a', '#ff9bb5'] };
+const WA_CANVAS = { '4:3': [760, 570], '16:9': [760, 428], '1:1': [640, 640], '9:16': [450, 800], 'A4': [600, 848] };
+/* is the point (x, y) of a W×H canvas inside the chosen outline? */
+function waInside(x, y, W, H, shape) {
+  const nx = (x / W) * 2 - 1, ny = (y / H) * 2 - 1, r = Math.hypot(nx, ny);
+  switch (shape) {
+    case 'circle': return r <= 0.94;
+    case 'heart': { const hx = nx * 1.15, hy = -(ny - 0.25) * 1.15; return Math.pow(hx * hx + hy * hy - 0.8, 3) - hx * hx * Math.pow(hy, 3) < 0; }
+    case 'star': { const sec = Math.PI / 5, a = ((Math.atan2(ny, nx) % (2 * sec)) + 2 * sec) % (2 * sec); return r <= 0.95 - Math.abs(a - sec) / sec * (0.95 - 0.38); }
+    case 'diamond': return Math.abs(nx) + Math.abs(ny) <= 0.96;
+    case 'triangle': { const ty = ny + 0.05; return ty >= -0.9 && ty <= 0.9 && Math.abs(nx) <= 0.95 * (ty + 0.9) / 1.8; }
+    case 'cloud': return [[0, 0.05, 0.5], [-0.38, 0.22, 0.36], [0.38, 0.22, 0.36], [-0.17, -0.2, 0.4], [0.22, -0.24, 0.42], [-0.5, 0, 0.28], [0.52, -0.04, 0.3]].some(c => Math.hypot(nx - c[0], ny - c[1]) <= c[2]);
+    default: return Math.abs(nx) <= 0.97 && Math.abs(ny) <= 0.97;
+  }
+}
+const waRng = seed => { let a = (seed * 2654435761) >>> 0 || 1; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
 const WA_FONTS = { sans: '"Segoe UI",system-ui,sans-serif', serif: 'Georgia,"Times New Roman",serif', mono: 'Consolas,"Courier New",monospace', round: '"Trebuchet MS","Segoe UI",sans-serif' };
 const WA_BG = { light: '#f4f7f5', white: '#ffffff', dark: '#14211d', none: null };
 const mixHex = (a, b, t) => { const p = x => [1, 3, 5].map(i => parseInt(x.slice(i, i + 2), 16)); const A = p(a), B = p(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
+const waDark = c => { const m = /^#([0-9a-f]{6})$/i.exec(c || ''); if (!m) return false; const v = [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16)); return (0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]) / 255 < 0.45; };
 function waColor(o, it, k, n) {
   if (o.unsaved && it.pending) return '#d64545';
   const t = n > 1 ? 1 - k / (n - 1) : 1; // 1 = most frequent
   if (o.scheme === 'cat') return WA_CAT[k % WA_CAT.length];
   if (o.scheme === 'custom') return o.custom;
+  if (WA_LISTS[o.scheme]) return WA_LISTS[o.scheme][k % WA_LISTS[o.scheme].length];
   const r = WA_RAMPS[o.scheme] || WA_RAMPS.green;
-  return o.bg === 'dark' ? mixHex(mixHex(r[0], '#14211d', 0.3), mixHex(r[1], '#ffffff', 0.72), t) : mixHex(r[0], r[1], t);
+  return waDark(o.bgColor) ? mixHex(mixHex(r[0], '#14211d', 0.3), mixHex(r[1], '#ffffff', 0.72), t) : mixHex(r[0], r[1], t);
 }
 function waLayout(items, o, W, H) {
   const ctx = document.createElement('canvas').getContext('2d'), n = Math.min(items.length, o.max), list = items.slice(0, n), placed = [];
   const max = list[0].count, min = list[n - 1].count, scale = c => max === min ? 0.55 : Math.sqrt((c - min) / (max - min)), txt = it => o.caseMode === 'upper' ? it.label.toUpperCase() : o.caseMode === 'lower' ? it.label.toLowerCase() : it.label;
-  const fnt = fs => (o.bold ? '700 ' : '400 ') + fs + 'px ' + WA_FONTS[o.font];
-  const hit = (x, y, w, hh) => placed.some(p => x < p.x + p.w && x + w > p.x && y < p.y + p.h && y + hh > p.y), inside = (x, y, w, hh) => x >= 4 && y >= 4 && x + w <= W - 4 && y + hh <= H - 4;
+  const fnt = fs => o.weight + ' ' + fs + 'px ' + WA_FONTS[o.font];
+  const rnd = waRng(o.seed || 1), hit = (x, y, w, hh) => placed.some(p => x < p.x + p.w && x + w > p.x && y < p.y + p.h && y + hh > p.y), inside = (x, y, w, hh) => x >= 4 && y >= 4 && x + w <= W - 4 && y + hh <= H - 4;
   list.forEach((it, k) => {
     const label = txt(it) + (o.counts ? ' ' + it.count : '');
     if (o.mode === 'bubbles') {
@@ -1420,27 +1440,43 @@ function waLayout(items, o, W, H) {
       }
       return;
     }
-    let fs = 11 + scale(it.count) * 40;
+    let fs = o.minSize + scale(it.count) * (o.maxSize - o.minSize);
     for (let tries = 0; tries < 6; tries++, fs *= 0.84) {
-      ctx.font = fnt(fs); const tw = ctx.measureText(label).width + 4, th = fs * 1.15, vert = o.orient === 'vertical' || (o.orient === 'mixed' && k % 4 === 3 && k > 0);
-      const w = vert ? th : tw, hh = vert ? tw : th; let pos = null;
-      for (let a = 0; a < 520 && !pos; a += 0.2) { const rr = a * 2.2, x = W / 2 + rr * Math.cos(a) * 1.5 - w / 2, y = H / 2 + rr * Math.sin(a) - hh / 2; if (inside(x, y, w, hh) && !hit(x, y, w, hh)) pos = { x, y, w, h: hh }; }
-      if (pos) { placed.push(Object.assign(pos, { it, k, label, fs, vert, cx: pos.x + pos.w / 2, cy: pos.y + pos.h / 2 })); break; }
+      if (fs < 8) break;
+      ctx.font = fnt(fs); const tw = ctx.measureText(label).width + 4 + o.spacing, th = fs * 1.15 + o.spacing;
+      let rot = 0;
+      if (o.rot === 'mixed') rot = rnd() > 0.5 ? 0 : -90; else if (o.rot === 'angled') rot = -o.angle; else if (o.rot === 'random') rot = (rnd() - 0.5) * 2 * o.angle; else if (o.rot === 'all') rot = [-90, -45, 0, 45, 90][Math.floor(rnd() * 5)];
+      const rad = rot * Math.PI / 180, w = Math.abs(tw * Math.cos(rad)) + Math.abs(th * Math.sin(rad)), hh = Math.abs(tw * Math.sin(rad)) + Math.abs(th * Math.cos(rad));
+      let pos = null;
+      for (let a = 0; a < 560 && !pos; a += 0.2) {
+        const rr = a * 2.2 * o.tight, cx = W / 2 + rr * Math.cos(a) * 1.5, cy = H / 2 + rr * Math.sin(a), x = cx - w / 2, y = cy - hh / 2;
+        if (inside(x, y, w, hh) && !hit(x, y, w, hh) && [[x, y], [x + w, y], [x, y + hh], [x + w, y + hh]].every(c => waInside(c[0], c[1], W, H, o.shape))) pos = { x, y, w, h: hh };
+      }
+      if (pos) { placed.push(Object.assign(pos, { it, k, label, fs, rot, cx: pos.x + pos.w / 2, cy: pos.y + pos.h / 2 })); break; }
     }
   });
   return placed;
 }
 function waSvg(items, o, onPick) {
-  const W = 760, H = 460, svg = sv('svg', { xmlns: SVGNS, viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, role: 'img', 'aria-label': 'Depicts word art', class: 'jv-wa' });
-  const bg = WA_BG[o.bg]; if (bg) svg.append(sv('rect', { width: W, height: H, fill: bg }));
-  const ink = o.bg === 'dark' ? '#e8f2ee' : '#17302b';
+  const cs = WA_CANVAS[o.canvas] || WA_CANVAS['4:3'], W = cs[0], H = cs[1], svg = sv('svg', { xmlns: SVGNS, viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, role: 'img', 'aria-label': 'Depicts word art', class: 'jv-wa' });
+  if (!o.transparent) {
+    let fill = o.bgColor;
+    if (o.grad !== 'none') {
+      const c = { linear: [0, 0, 1, 1], vertical: [0, 0, 0, 1] }[o.grad];
+      svg.append(sv('defs', {}, o.grad === 'radial' ? sv('radialGradient', { id: 'waG', cx: '50%', cy: '50%', r: '65%' }, sv('stop', { offset: '0%', 'stop-color': o.bgColor }), sv('stop', { offset: '100%', 'stop-color': o.bg2 }))
+        : sv('linearGradient', { id: 'waG', x1: c[0], y1: c[1], x2: c[2], y2: c[3] }, sv('stop', { offset: '0%', 'stop-color': o.bgColor }), sv('stop', { offset: '100%', 'stop-color': o.bg2 }))));
+      fill = 'url(#waG)';
+    }
+    svg.append(sv('rect', { width: W, height: H, fill }));
+  }
+  const ink = waDark(o.bgColor) && !o.transparent ? '#e8f2ee' : '#17302b';
   if (!items.length) { svg.append(sv('text', { x: W / 2, y: H / 2, 'text-anchor': 'middle', fill: ink, 'font-family': WA_FONTS.sans, 'font-size': 16 }, 'No depicts tagged yet.')); return svg; }
   const n = Math.min(items.length, o.max), tip = it => sv('title', {}, it.label + ' (' + it.id + ') · ' + it.count + ' file(s)' + (it.pending ? ' · unsaved' : ''));
   if (o.mode === 'bars') {
     const rows = Math.min(n, 16), rh = (H - 20) / rows, lw = 230, mx = items[0].count;
     items.slice(0, rows).forEach((it, k) => {
       const y = 10 + k * rh, w = (W - lw - 60) * it.count / mx, g = sv('g', { style: 'cursor:pointer' }, tip(it));
-      g.append(sv('text', { x: lw - 8, y: y + rh / 2 + 4, 'text-anchor': 'end', fill: ink, 'font-family': WA_FONTS[o.font], 'font-size': Math.min(14, rh * 0.62), 'font-weight': o.bold ? 700 : 400 }, (o.caseMode === 'upper' ? it.label.toUpperCase() : o.caseMode === 'lower' ? it.label.toLowerCase() : it.label).slice(0, 34)),
+      g.append(sv('text', { x: lw - 8, y: y + rh / 2 + 4, 'text-anchor': 'end', fill: ink, 'font-family': WA_FONTS[o.font], 'font-size': Math.min(14, rh * 0.62), 'font-weight': o.weight }, (o.caseMode === 'upper' ? it.label.toUpperCase() : o.caseMode === 'lower' ? it.label.toLowerCase() : it.label).slice(0, 34)),
         sv('rect', { x: lw, y: y + 2, width: Math.max(2, w), height: rh - 4, rx: 3, fill: waColor(o, it, k, rows) }), sv('text', { x: lw + w + 6, y: y + rh / 2 + 4, fill: ink, 'font-family': WA_FONTS.sans, 'font-size': 12 }, String(it.count)));
       g.addEventListener('click', () => onPick(it.id)); svg.append(g);
     });
@@ -1450,13 +1486,13 @@ function waSvg(items, o, onPick) {
   placed.forEach(p => {
     const col = waColor(o, p.it, p.k, placed.length), g = sv('g', { style: 'cursor:pointer' }, tip(p.it));
     if (o.mode === 'bubbles') {
-      g.append(sv('circle', { cx: p.cx, cy: p.cy, r: p.rad, fill: col, 'fill-opacity': 0.9, stroke: o.bg === 'dark' ? '#14211d' : '#fff', 'stroke-width': 2 }));
+      g.append(sv('circle', { cx: p.cx, cy: p.cy, r: p.rad, fill: col, 'fill-opacity': 0.9, stroke: o.transparent ? '#fff' : o.bgColor, 'stroke-width': 2 }));
       const words = p.label.split(' '), lines = [], max = Math.max(5, Math.floor(p.rad * 1.7 / (p.fs * 0.56)));
       words.forEach(w => { const l = lines[lines.length - 1]; if (l && (l + ' ' + w).length <= max) lines[lines.length - 1] = l + ' ' + w; else lines.push(w); });
-      const ls = lines.slice(0, 3); ls.forEach((t, i) => g.append(sv('text', { x: p.cx, y: p.cy + (i - (ls.length - 1) / 2) * p.fs * 1.1 + p.fs * 0.35, 'text-anchor': 'middle', fill: '#fff', 'font-family': WA_FONTS[o.font], 'font-size': p.fs, 'font-weight': o.bold ? 700 : 400, 'paint-order': 'stroke', stroke: 'rgba(0,0,0,.25)', 'stroke-width': 0.6 }, t.length > max + 2 ? t.slice(0, max) + '…' : t)));
+      const ls = lines.slice(0, 3); ls.forEach((t, i) => g.append(sv('text', { x: p.cx, y: p.cy + (i - (ls.length - 1) / 2) * p.fs * 1.1 + p.fs * 0.35, 'text-anchor': 'middle', fill: '#fff', 'font-family': WA_FONTS[o.font], 'font-size': p.fs, 'font-weight': o.weight, 'paint-order': 'stroke', stroke: 'rgba(0,0,0,.25)', 'stroke-width': 0.6 }, t.length > max + 2 ? t.slice(0, max) + '…' : t)));
     } else {
-      const t = sv('text', { x: p.cx, y: p.cy + p.fs * 0.33, 'text-anchor': 'middle', fill: col, 'font-family': WA_FONTS[o.font], 'font-size': p.fs, 'font-weight': o.bold ? 700 : 400 }, p.label);
-      if (p.vert) t.setAttribute('transform', 'rotate(-90 ' + p.cx + ' ' + p.cy + ')'); g.append(t);
+      const t = sv('text', { x: p.cx, y: p.cy + p.fs * 0.33, 'text-anchor': 'middle', fill: col, 'font-family': WA_FONTS[o.font], 'font-size': p.fs, 'font-weight': o.weight, opacity: o.opacity }, p.label);
+      if (p.rot) t.setAttribute('transform', 'rotate(' + p.rot.toFixed(1) + ' ' + p.cx + ' ' + p.cy + ')'); g.append(t);
     }
     g.addEventListener('click', () => onPick(p.it.id)); svg.append(g);
   });
@@ -1474,10 +1510,10 @@ function dlBlob(name, blob) { const a = h('a', { href: URL.createObjectURL(blob)
 async function depictsModal() {
   if (!S.recs.length) return setStatus('Load files first.');
   const fr = depictsFreq(); await ensureWd(fr.map(f => f.id));
-  const total = S.recs.length, tagged = S.recs.filter(r => effDepicts(r).length).length, L = { a: 'en', b: '' };
-  const o = Object.assign({ mode: 'cloud', scheme: 'green', custom: '#0b7a5a', bg: 'light', font: 'sans', orient: 'mixed', caseMode: 'as', max: 80, bold: true, counts: false, unsaved: true }, (() => { try { return JSON.parse(localStorage.getItem('dw.wordart') || '{}'); } catch (e) { return {}; } })());
+  const total = S.recs.length, tagged = S.recs.filter(r => effDepicts(r).length).length, L = { a: 'en' };
+  const o = Object.assign({ mode: 'cloud', scheme: 'green', custom: '#0b7a5a', bgColor: '#f4f7f5', bg2: '#dfe9e3', grad: 'none', transparent: false, font: 'sans', weight: '700', rot: 'mixed', angle: 45, caseMode: 'as', max: 80, counts: false, unsaved: true, shape: 'rectangle', canvas: '4:3', minSize: 12, maxSize: 52, spacing: 2, tight: 1, opacity: 1, seed: 1 }, (() => { try { return JSON.parse(localStorage.getItem('dw.wordart') || '{}'); } catch (e) { return {}; } })());
   const saveO = () => { try { localStorage.setItem('dw.wordart', JSON.stringify(o)); } catch (e) {} };
-  const lab = id => { const a = labIn(id, L.a) || labIn(id, 'en') || id, b = L.b ? labIn(id, L.b) : ''; return b && b !== a ? a + ' / ' + b : a; };
+  const lab = id => labIn(id, L.a) || labIn(id, 'en') || id;
   let art = h('div', { class: 'jv-waview' }); const tblBox = h('div', { class: 'jv-dlist' });
   const sorted = () => { fr.forEach(f => { f.label = lab(f.id); }); return fr.slice().sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)); };
   let cur = [];
@@ -1504,24 +1540,33 @@ async function depictsModal() {
     inp.addEventListener('change', apply); inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); apply(); } });
     return h('span', { class: 'jv-langf' }, inp, hint);
   };
-  const langRow = h('div', { class: 'jv-langrow' }, dlist, h('span', {}, 'Depicts language'), langIn('a', 'en', 'en'), h('span', { class: 'jv-dim' }, '+ second'), langIn('b', 'e.g. ml', ''));
+  const langRow = h('div', { class: 'jv-langrow' }, dlist, h('span', {}, 'Depicts language'), langIn('a', 'en', 'en'));
   /* word art settings (below the picture) */
   const sel = (key, opts, after) => h('select', { onchange: e => { o[key] = e.target.value; saveO(); if (after) after(); draw(); } }, opts.map(x => h('option', { value: x[0], selected: o[key] === x[0] }, x[1])));
   const chk = (key, text) => h('label', { class: 'jv-inl' }, h('input', { type: 'checkbox', checked: !!o[key], onchange: e => { o[key] = e.target.checked; saveO(); draw(); } }), ' ' + text);
   const colorIn = h('input', { type: 'color', value: o.custom, title: 'Custom colour', oninput: e => { o.custom = e.target.value; o.scheme = 'custom'; schemeSel.value = 'custom'; saveO(); draw(); } });
-  const schemeSel = sel('scheme', [['green', 'Greens'], ['blue', 'Blues'], ['warm', 'Warm'], ['grey', 'Grey'], ['cat', 'Many colours'], ['custom', 'My colour']]);
-  const maxIn = h('input', { type: 'range', min: 10, max: 150, step: 5, value: o.max, title: 'Number of items', oninput: e => { o.max = +e.target.value; mv.textContent = o.max; saveO(); draw(); } }), mv = h('b', {}, o.max);
+  const schemeSel = sel('scheme', [['green', 'Greens'], ['blue', 'Blues'], ['warm', 'Warm'], ['grey', 'Grey'], ['cat', 'Many colours'], ['sun', 'Sun'], ['sea', 'Sea'], ['rainbow', 'Rainbow'], ['earth', 'Earth'], ['night', 'Night (for dark backgrounds)'], ['custom', 'My colour']]);
+  const rng = (key, min, max, step, unit) => { const v = h('b', {}, o[key] + (unit || '')); return h('label', { class: 'jv-rng' }, h('span', {}, ({ max: 'Items', minSize: 'Smallest', maxSize: 'Largest', spacing: 'Spacing', tight: 'Spiral', opacity: 'Opacity', angle: 'Angle' })[key]), h('input', { type: 'range', min, max, step, value: o[key], oninput: e => { o[key] = +e.target.value; v.textContent = o[key] + (unit || ''); saveO(); draw(); } }), v); };
+  const bgIn = h('input', { type: 'color', value: o.bgColor, title: 'Background colour', oninput: e => { o.bgColor = e.target.value; o.transparent = false; saveO(); draw(); } });
+  const bg2In = h('input', { type: 'color', value: o.bg2, title: 'Second background colour (gradient)', oninput: e => { o.bg2 = e.target.value; saveO(); draw(); } });
+  const swatches = h('span', { class: 'jv-sw2' }, ['#ffffff', '#f4f7f5', '#fff1e5', '#f2dfce', '#262a33', '#14211d', '#1a1a2e', '#111111'].map(c => h('button', { style: 'background:' + c, title: c, onclick: () => { o.bgColor = c; o.transparent = false; bgIn.value = c; saveO(); draw(); } })));
+  const group = (t, ...k) => h('fieldset', { class: 'jv-wag' }, h('legend', {}, t), ...k);
   const cfg = h('div', { class: 'jv-wacfg' },
-    h('label', {}, 'Style ', sel('mode', [['cloud', 'Word cloud'], ['bubbles', 'Bubbles'], ['bars', 'Bars']])),
-    h('label', {}, 'Colours ', schemeSel, colorIn), h('label', {}, 'Background ', sel('bg', [['light', 'Light'], ['white', 'White'], ['dark', 'Dark'], ['none', 'Transparent']])),
-    h('label', {}, 'Font ', sel('font', [['sans', 'Sans'], ['serif', 'Serif'], ['mono', 'Mono'], ['round', 'Rounded']])),
-    h('label', {}, 'Words ', sel('orient', [['mixed', 'Some upright'], ['horizontal', 'Horizontal'], ['vertical', 'All upright']])),
-    h('label', {}, 'Letters ', sel('caseMode', [['as', 'As written'], ['upper', 'UPPER'], ['lower', 'lower']])),
-    h('label', {}, 'Items ', maxIn, ' ', mv), chk('bold', 'Bold'), chk('counts', 'Show counts'), chk('unsaved', 'Unsaved in red'));
+    group('Picture', h('label', {}, 'Style ', sel('mode', [['cloud', 'Word cloud'], ['bubbles', 'Bubbles'], ['bars', 'Bars']])),
+      h('label', {}, 'Outline ', sel('shape', WA_SHAPES)), h('label', {}, 'Size ', sel('canvas', Object.keys(WA_CANVAS).map(k => [k, k]))), rng('max', 10, 150, 5),
+      h('button', { title: 'Place the words differently', onclick: () => { o.seed = (o.seed || 1) + 1; saveO(); draw(); } }, '⟳ New layout')),
+    group('Words', h('label', {}, 'Font ', sel('font', [['sans', 'Sans'], ['serif', 'Serif'], ['mono', 'Mono'], ['round', 'Rounded']])), h('label', {}, 'Weight ', sel('weight', [['400', 'Normal'], ['700', 'Bold'], ['900', 'Black']])),
+      h('label', {}, 'Letters ', sel('caseMode', [['as', 'As written'], ['upper', 'UPPER'], ['lower', 'lower']])), rng('minSize', 8, 40, 1, 'px'), rng('maxSize', 30, 120, 2, 'px'),
+      h('label', {}, 'Rotation ', sel('rot', [['none', 'None'], ['mixed', '0° / 90°'], ['angled', 'Fixed angle'], ['random', 'Random'], ['all', 'All angles']])), rng('angle', 0, 90, 5, '°'),
+      rng('spacing', 0, 20, 1, 'px'), rng('tight', 0.5, 4, 0.5), rng('opacity', 0.2, 1, 0.05), chk('counts', 'Show counts')),
+    group('Colours', h('label', {}, 'Palette ', schemeSel, colorIn), chk('unsaved', 'Unsaved in red'),
+      h('label', {}, 'Background ', bgIn, swatches), h('label', {}, 'Gradient ', sel('grad', [['none', 'None'], ['linear', 'Diagonal'], ['vertical', 'Top → bottom'], ['radial', 'Radial']]), bg2In), chk('transparent', 'Transparent')),
+    h('div', { class: 'jv-attr' }, 'Settings inspired by ', h('a', { href: 'https://github.com/nethahussain/vaakkumegham', target: '_blank', rel: 'noopener' }, 'Vaakkumegham'), ' by Netha Hussain and the ',
+      h('a', { href: 'https://www.nscience.in/p/word-cloud-generator.html', target: '_blank', rel: 'noopener' }, 'Word Cloud Generator'), ' by Navaneeth Krishnan S (NScience).'));
   /* downloads */
   const base = () => 'depicts-' + o.mode;
   const exp = {
-    csv: async () => { const rows = ['rank,wikidata_id,label,' + (L.b ? 'label_' + L.a + ',label_' + L.b + ',' : '') + 'files,percent_of_files,files_with_unsaved'].concat(cur.map((f, i) => [i + 1, f.id, '"' + f.label.replace(/"/g, '""') + '"'].concat(L.b ? ['"' + (labIn(f.id, L.a) || labIn(f.id, 'en')).replace(/"/g, '""') + '"', '"' + labIn(f.id, L.b).replace(/"/g, '""') + '"'] : [], [f.count, (f.count / total * 100).toFixed(1), f.pending]).join(','))); download(outName('csv', 'depicts-frequency'), 'text/csv', '﻿' + rows.join('\n')); },
+    csv: async () => { const rows = ['rank,wikidata_id,label,files,percent_of_files,files_with_unsaved'].concat(cur.map((f, i) => [i + 1, f.id, '"' + f.label.replace(/"/g, '""') + '"'].concat([f.count, (f.count / total * 100).toFixed(1), f.pending]).join(','))); download(outName('csv', 'depicts-frequency'), 'text/csv', '﻿' + rows.join('\n')); },
     json: async () => download(outName('json', 'depicts-frequency'), 'application/json', JSON.stringify(cur.map((f, i) => ({ rank: i + 1, id: f.id, label: f.label, files: f.count, unsaved: f.pending })), null, 1)),
     svg: async () => download(outName('svg', base()), 'image/svg+xml', svgText(art.firstChild)),
     png: async () => dlBlob(outName('png', base()), await svgToPng(art.firstChild, 2)),
@@ -1840,7 +1885,12 @@ mw.util.addCSS(`
 .jv-waview{flex:1.5;min-width:0;border:1px solid #cdd8d2;background:repeating-conic-gradient(#e9eeeb 0 25%,#fff 0 50%) 0 0/16px 16px}.jv-waview svg{display:block;width:100%;height:auto}
 .jv-langrow{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin:-4px 0 8px}.jv-langf{display:inline-flex;gap:4px;align-items:center}
 #jv-root input.jv-langin{width:92px;font:inherit;padding:3px 6px;border:1px solid #b7c5bd;border-radius:3px}#jv-root input.jv-langin.bad{border-color:#d64545;background:#fdeceb}
-.jv-wacfg{display:flex;gap:10px 14px;flex-wrap:wrap;align-items:center;margin-top:10px;padding:8px;background:#f4f7f5;border:1px solid #cdd8d2;border-radius:4px;font-size:13px}
+.jv-wacfg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px;font-size:13px}
+.jv-wag{display:flex;flex-direction:column;gap:6px;margin:0;padding:6px 8px 8px;background:#f4f7f5;border:1px solid #cdd8d2;border-radius:4px;min-width:0}.jv-wag legend{font-weight:600;color:#0b5c44;padding:0 4px}
+.jv-wag label{display:flex;gap:6px;align-items:center;justify-content:space-between}.jv-rng input{flex:1;min-width:0}.jv-rng span{min-width:62px}.jv-rng b{min-width:40px;text-align:right;color:#0b5c44}
+.jv-sw2{display:inline-flex;gap:2px}#jv-root .jv-sw2 button{width:16px;height:16px;padding:0;border-radius:3px}
+.jv-attr{grid-column:1/-1;font-size:12px;color:#5d7068}
+@media(max-width:900px){.jv-wacfg{grid-template-columns:1fr}}
 .jv-wacfg select,.jv-dlsel{font:inherit;padding:2px 4px;border:1px solid #b7c5bd;border-radius:3px}.jv-inl{display:inline-flex;gap:3px;align-items:center}.jv-wacfg input[type=color]{width:28px;height:24px;padding:0;border:1px solid #b7c5bd;vertical-align:middle}
 .jv-dlist{flex:1;min-width:280px;max-height:460px;overflow:auto}
 .jv-ft{width:100%;border-collapse:collapse;font-size:13px}.jv-ft th{text-align:left;color:#5d7068;font-weight:500;border-bottom:1px solid #cdd8d2;padding:3px 4px}.jv-ft td{padding:3px 4px;border-bottom:1px solid #edf1ee;vertical-align:middle}
