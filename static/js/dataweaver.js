@@ -1511,7 +1511,7 @@ async function depictsModal() {
   if (!S.recs.length) return setStatus('Load files first.');
   const fr = depictsFreq(); await ensureWd(fr.map(f => f.id));
   const total = S.recs.length, tagged = S.recs.filter(r => effDepicts(r).length).length, L = { a: 'en' };
-  const o = Object.assign({ mode: 'cloud', scheme: 'green', custom: '#0b7a5a', bgColor: '#f4f7f5', bg2: '#dfe9e3', grad: 'none', transparent: false, font: 'sans', weight: '700', rot: 'mixed', angle: 45, caseMode: 'as', max: 80, counts: false, unsaved: true, shape: 'rectangle', canvas: '4:3', minSize: 12, maxSize: 52, spacing: 2, tight: 1, opacity: 1, seed: 1 }, (() => { try { return JSON.parse(localStorage.getItem('dw.wordart') || '{}'); } catch (e) { return {}; } })());
+  const o = Object.assign({ mode: 'cloud', bgMode: 'light', scheme: 'green', custom: '#0b7a5a', bgColor: '#f4f7f5', bg2: '#dfe9e3', grad: 'none', transparent: false, font: 'sans', weight: '700', rot: 'mixed', angle: 45, caseMode: 'as', max: 80, counts: false, unsaved: true, shape: 'rectangle', canvas: '4:3', minSize: 12, maxSize: 52, spacing: 2, tight: 1, opacity: 1, seed: 1 }, (() => { try { return JSON.parse(localStorage.getItem('dw.wordart') || '{}'); } catch (e) { return {}; } })());
   const saveO = () => { try { localStorage.setItem('dw.wordart', JSON.stringify(o)); } catch (e) {} };
   const lab = id => labIn(id, L.a) || labIn(id, 'en') || id;
   let art = h('div', { class: 'jv-waview' }); const tblBox = h('div', { class: 'jv-dlist' });
@@ -1544,25 +1544,22 @@ async function depictsModal() {
   /* word art settings (below the picture) */
   const sel = (key, opts, after) => h('select', { onchange: e => { o[key] = e.target.value; saveO(); if (after) after(); draw(); } }, opts.map(x => h('option', { value: x[0], selected: o[key] === x[0] }, x[1])));
   const chk = (key, text) => h('label', { class: 'jv-inl' }, h('input', { type: 'checkbox', checked: !!o[key], onchange: e => { o[key] = e.target.checked; saveO(); draw(); } }), ' ' + text);
-  const colorIn = h('input', { type: 'color', value: o.custom, title: 'Custom colour', oninput: e => { o.custom = e.target.value; o.scheme = 'custom'; schemeSel.value = 'custom'; saveO(); draw(); } });
-  const schemeSel = sel('scheme', [['green', 'Greens'], ['blue', 'Blues'], ['warm', 'Warm'], ['grey', 'Grey'], ['cat', 'Many colours'], ['sun', 'Sun'], ['sea', 'Sea'], ['rainbow', 'Rainbow'], ['earth', 'Earth'], ['night', 'Night (for dark backgrounds)'], ['custom', 'My colour']]);
-  const rng = (key, min, max, step, unit) => { const v = h('b', {}, o[key] + (unit || '')); return h('label', { class: 'jv-rng' }, h('span', {}, ({ max: 'Items', minSize: 'Smallest', maxSize: 'Largest', spacing: 'Spacing', tight: 'Spiral', opacity: 'Opacity', angle: 'Angle' })[key]), h('input', { type: 'range', min, max, step, value: o[key], oninput: e => { o[key] = +e.target.value; v.textContent = o[key] + (unit || ''); saveO(); draw(); } }), v); };
-  const bgIn = h('input', { type: 'color', value: o.bgColor, title: 'Background colour', oninput: e => { o.bgColor = e.target.value; o.transparent = false; saveO(); draw(); } });
-  const bg2In = h('input', { type: 'color', value: o.bg2, title: 'Second background colour (gradient)', oninput: e => { o.bg2 = e.target.value; saveO(); draw(); } });
-  const swatches = h('span', { class: 'jv-sw2' }, ['#ffffff', '#f4f7f5', '#fff1e5', '#f2dfce', '#262a33', '#14211d', '#1a1a2e', '#111111'].map(c => h('button', { style: 'background:' + c, title: c, onclick: () => { o.bgColor = c; o.transparent = false; bgIn.value = c; saveO(); draw(); } })));
-  const group = (t, ...k) => h('fieldset', { class: 'jv-wag' }, h('legend', {}, t), ...k);
+  /* kept simple on purpose: style, colours, background, how many; everything else lives in WikiWordCloud */
+  const schemeSel = sel('scheme', [['green', 'Greens'], ['blue', 'Blues'], ['warm', 'Warm'], ['grey', 'Grey'], ['cat', 'Many colours'], ['sun', 'Sun'], ['sea', 'Sea'], ['rainbow', 'Rainbow'], ['earth', 'Earth'], ['night', 'Night']]);
+  const bgSel = h('select', { onchange: e => { const v = e.target.value; o.transparent = v === 'none'; if (v !== 'none') o.bgColor = { light: '#f4f7f5', white: '#ffffff', dark: '#14211d' }[v]; o.bgMode = v; saveO(); draw(); } },
+    [['light', 'Light'], ['white', 'White'], ['dark', 'Dark'], ['none', 'Transparent']].map(x => h('option', { value: x[0], selected: (o.bgMode || 'light') === x[0] ? '' : null }, x[1])));
+  const maxIn = h('input', { type: 'range', min: 10, max: 150, step: 5, value: o.max, title: 'Number of items', oninput: e => { o.max = +e.target.value; mv.textContent = o.max; saveO(); draw(); } }), mv = h('b', {}, o.max);
+  const WWC_URL = 'https://wordcloud.toolforge.org';
+  const catUrl = S.srcCat ? 'https://commons.wikimedia.org/wiki/Category:' + encodeURIComponent(S.srcCat.replace(/^Category:/i, '').replace(/ /g, '_')).replace(/%3A/g, ':').replace(/%2C/g, ',') : '';
+  const more = h('div', { class: 'jv-wamore' },
+    h('b', {}, 'More word-cloud options: '),
+    catUrl ? h('a', { href: WWC_URL + '/studio?src=' + encodeURIComponent(catUrl), target: '_blank', rel: 'noopener' }, 'open this category in WikiWordCloud ↗') : h('a', { href: WWC_URL + '/', target: '_blank', rel: 'noopener' }, 'open WikiWordCloud ↗'),
+    ' (shapes, fonts for Indic scripts, editing words, many download formats). To use these depicts there, download the ', h('b', {}, 'CSV'), ' or ', h('b', {}, 'JSON'), ' here and choose ', h('i', {}, 'Open file'), ' in its Source tab. Inspired by ',
+    h('a', { href: 'https://github.com/nethahussain/vaakkumegham', target: '_blank', rel: 'noopener' }, 'Vaakkumegham'), ' (Netha Hussain) and NScience ',
+    h('a', { href: 'https://www.nscience.in/p/word-cloud-generator.html', target: '_blank', rel: 'noopener' }, 'Vaakkuttam'), ' (Navaneeth Krishnan S).');
   const cfg = h('div', { class: 'jv-wacfg' },
-    group('Picture', h('label', {}, 'Style ', sel('mode', [['cloud', 'Word cloud'], ['bubbles', 'Bubbles'], ['bars', 'Bars']])),
-      h('label', {}, 'Outline ', sel('shape', WA_SHAPES)), h('label', {}, 'Size ', sel('canvas', Object.keys(WA_CANVAS).map(k => [k, k]))), rng('max', 10, 150, 5),
-      h('button', { title: 'Place the words differently', onclick: () => { o.seed = (o.seed || 1) + 1; saveO(); draw(); } }, '⟳ New layout')),
-    group('Words', h('label', {}, 'Font ', sel('font', [['sans', 'Sans'], ['serif', 'Serif'], ['mono', 'Mono'], ['round', 'Rounded']])), h('label', {}, 'Weight ', sel('weight', [['400', 'Normal'], ['700', 'Bold'], ['900', 'Black']])),
-      h('label', {}, 'Letters ', sel('caseMode', [['as', 'As written'], ['upper', 'UPPER'], ['lower', 'lower']])), rng('minSize', 8, 40, 1, 'px'), rng('maxSize', 30, 120, 2, 'px'),
-      h('label', {}, 'Rotation ', sel('rot', [['none', 'None'], ['mixed', '0° / 90°'], ['angled', 'Fixed angle'], ['random', 'Random'], ['all', 'All angles']])), rng('angle', 0, 90, 5, '°'),
-      rng('spacing', 0, 20, 1, 'px'), rng('tight', 0.5, 4, 0.5), rng('opacity', 0.2, 1, 0.05), chk('counts', 'Show counts')),
-    group('Colours', h('label', {}, 'Palette ', schemeSel, colorIn), chk('unsaved', 'Unsaved in red'),
-      h('label', {}, 'Background ', bgIn, swatches), h('label', {}, 'Gradient ', sel('grad', [['none', 'None'], ['linear', 'Diagonal'], ['vertical', 'Top → bottom'], ['radial', 'Radial']]), bg2In), chk('transparent', 'Transparent')),
-    h('div', { class: 'jv-attr' }, 'Settings inspired by ', h('a', { href: 'https://github.com/nethahussain/vaakkumegham', target: '_blank', rel: 'noopener' }, 'Vaakkumegham'), ' by Netha Hussain and the ',
-      h('a', { href: 'https://www.nscience.in/p/word-cloud-generator.html', target: '_blank', rel: 'noopener' }, 'Word Cloud Generator'), ' by Navaneeth Krishnan S (NScience).'));
+    h('label', {}, 'Style ', sel('mode', [['cloud', 'Word cloud'], ['bubbles', 'Bubbles'], ['bars', 'Bars']])), h('label', {}, 'Colours ', schemeSel), h('label', {}, 'Background ', bgSel),
+    h('label', { class: 'jv-rng' }, h('span', {}, 'Items'), maxIn, mv), chk('unsaved', 'Unsaved in red'), h('button', { title: 'Place the words differently', onclick: () => { o.seed = (o.seed || 1) + 1; saveO(); draw(); } }, '⟳ New layout'), more);
   /* downloads */
   const base = () => 'depicts-' + o.mode;
   const exp = {
@@ -1885,12 +1882,8 @@ mw.util.addCSS(`
 .jv-waview{flex:1.5;min-width:0;border:1px solid #cdd8d2;background:repeating-conic-gradient(#e9eeeb 0 25%,#fff 0 50%) 0 0/16px 16px}.jv-waview svg{display:block;width:100%;height:auto}
 .jv-langrow{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin:-4px 0 8px}.jv-langf{display:inline-flex;gap:4px;align-items:center}
 #jv-root input.jv-langin{width:92px;font:inherit;padding:3px 6px;border:1px solid #b7c5bd;border-radius:3px}#jv-root input.jv-langin.bad{border-color:#d64545;background:#fdeceb}
-.jv-wacfg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px;font-size:13px}
-.jv-wag{display:flex;flex-direction:column;gap:6px;margin:0;padding:6px 8px 8px;background:#f4f7f5;border:1px solid #cdd8d2;border-radius:4px;min-width:0}.jv-wag legend{font-weight:600;color:#0b5c44;padding:0 4px}
-.jv-wag label{display:flex;gap:6px;align-items:center;justify-content:space-between}.jv-rng input{flex:1;min-width:0}.jv-rng span{min-width:62px}.jv-rng b{min-width:40px;text-align:right;color:#0b5c44}
-.jv-sw2{display:inline-flex;gap:2px}#jv-root .jv-sw2 button{width:16px;height:16px;padding:0;border-radius:3px}
-.jv-attr{grid-column:1/-1;font-size:12px;color:#5d7068}
-@media(max-width:900px){.jv-wacfg{grid-template-columns:1fr}}
+.jv-wacfg{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-top:10px;padding:8px;background:#f4f7f5;border:1px solid #cdd8d2;border-radius:4px;font-size:13px}
+.jv-wacfg .jv-rng{display:flex;gap:6px;align-items:center}.jv-wacfg .jv-rng b{min-width:30px;color:#0b5c44}.jv-wamore{flex-basis:100%;font-size:12.5px;color:#3d5148;line-height:1.5}
 .jv-wacfg select,.jv-dlsel{font:inherit;padding:2px 4px;border:1px solid #b7c5bd;border-radius:3px}.jv-inl{display:inline-flex;gap:3px;align-items:center}.jv-wacfg input[type=color]{width:28px;height:24px;padding:0;border:1px solid #b7c5bd;vertical-align:middle}
 .jv-dlist{flex:1;min-width:280px;max-height:460px;overflow:auto}
 .jv-ft{width:100%;border-collapse:collapse;font-size:13px}.jv-ft th{text-align:left;color:#5d7068;font-weight:500;border-bottom:1px solid #cdd8d2;padding:3px 4px}.jv-ft td{padding:3px 4px;border-bottom:1px solid #edf1ee;vertical-align:middle}

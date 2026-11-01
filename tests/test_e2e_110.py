@@ -522,16 +522,20 @@ def test_depicts_overview_modes_downloads_and_language(stack):
     opts = modal.locator("select.jv-dlsel option").all_inner_texts()
     for want in ["CSV", "SVG", "PNG", "All formats"]:
         assert any(want in o for o in opts), (want, opts)
-    assert modal.locator("input.jv-langin").count() == 1          # no second language
-    expect(modal.locator(".jv-attr")).to_contain_text("Netha Hussain")
-    expect(modal.locator(".jv-attr")).to_contain_text("Navaneeth Krishnan S")
-    assert modal.locator(".jv-attr a[href='https://github.com/nethahussain/vaakkumegham']").count() == 1
-    modal.locator(".jv-wacfg select").first.select_option("cloud")
-    for shape in ["circle", "heart", "star", "cloud"]:
-        modal.locator(".jv-wacfg select").nth(1).select_option(shape)
-        assert modal.locator("svg.jv-wa text").count() >= 1, shape
-    modal.locator(".jv-wacfg select").nth(2).select_option("16:9")
-    assert page.evaluate("() => document.querySelector('svg.jv-wa').getAttribute('viewBox')") == "0 0 760 428"
+    assert modal.locator("input.jv-langin").count() == 1          # one language, English by default
+    more = modal.locator(".jv-wamore")                              # the simple overview points to the full tool
+    expect(more).to_contain_text("WikiWordCloud")
+    expect(more).to_contain_text("Netha Hussain")
+    expect(more).to_contain_text("Vaakkuttam")
+    href = more.locator("a").first.get_attribute("href")
+    assert href.startswith("https://wordcloud.toolforge.org/"), href
+    assert modal.locator(".jv-wacfg select").count() == 3 and modal.locator(".jv-wacfg input[type=range]").count() == 1   # style, colours, background, items: nothing more
+    page.evaluate("() => { DW.core.S.srcCat = 'Category:Birds of Kerala'; }")
+    modal.get_by_role("button", name="Close").click()
+    page.get_by_role("button", name="Depicts overview").click()
+    href = page.locator(".jv-modal").last.locator(".jv-wamore a").first.get_attribute("href")
+    assert href == "https://wordcloud.toolforge.org/studio?src=" + "https%3A%2F%2Fcommons.wikimedia.org%2Fwiki%2FCategory%3ABirds_of_Kerala", href
+    modal = page.locator(".jv-modal").last
     svg = page.evaluate("() => DW.core.svgText(document.querySelector('svg.jv-wa'))")
     assert svg.startswith("<?xml") and "xmlns=" in svg
     assert not problems, problems

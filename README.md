@@ -120,6 +120,6 @@ Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Pl
 
 ## Licence and credits
 
-GPL-3.0-or-later, see [LICENSE](LICENSE). Vendored: jQuery IME (GPL-3.0-or-later or MIT) and jQuery (MIT), see [static/vendor/README.md](static/vendor/README.md). Word-art settings in the Depicts overview were inspired by [Vaakkumegham](https://github.com/nethahussain/vaakkumegham) by Netha Hussain and the [Word Cloud Generator](https://www.nscience.in/p/word-cloud-generator.html) by Navaneeth Krishnan S. Credits for ideas, data and platform are on the [Credits page](https://dataweaver.toolforge.org/credits).
+GPL-3.0-or-later, see [LICENSE](LICENSE). Vendored: jQuery IME (GPL-3.0-or-later or MIT) and jQuery (MIT), see [static/vendor/README.md](static/vendor/README.md). Word-art settings in the Depicts overview were inspired by [Vaakkumegham](https://github.com/nethahussain/vaakkumegham) by Netha Hussain and the NScience [Vaakkuttam](https://www.nscience.in/p/word-cloud-generator.html) generator by Navaneeth Krishnan S. Credits for ideas, data and platform are on the [Credits page](https://dataweaver.toolforge.org/credits).
 
 To cite: see [CITATION.cff](CITATION.cff) or DOI [10.5281/zenodo.23680558](https://doi.org/10.5281/zenodo.23680558).
