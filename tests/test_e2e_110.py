@@ -362,7 +362,7 @@ def test_camera_filter_keys_beside_gear_one_line_toolbar_credit_line(stack):
     assert dl["x"] + dl["width"] <= 1366 and dl["x"] > page.locator(".jv-tools input[type=search]").bounding_box()["x"]
     # credit line: version and the Phabricator link
     credit = page.locator(".jv-credit")
-    assert "v1.1.0" in credit.inner_text()
+    assert "v1.2.0" in credit.inner_text()
     assert credit.locator("a", has_text="Phabricator").count() == 0          # no Phabricator link on the tool page itself
     assert credit.locator("a", has_text="DOI").get_attribute("href") == "https://doi.org/10.5281/zenodo.23680558"
     page.goto(stack["base"] + "/about")
@@ -525,8 +525,7 @@ def test_depicts_overview_modes_downloads_and_language(stack):
     assert modal.locator("input.jv-langin").count() == 1          # one language, English by default
     more = modal.locator(".jv-wamore")                              # the simple overview points to the full tool
     expect(more).to_contain_text("WikiWordCloud")
-    expect(more).to_contain_text("Netha Hussain")
-    expect(more).to_contain_text("Vaakkuttam")
+    expect(more).not_to_contain_text("Vaakkuttam")
     href = more.locator("a").first.get_attribute("href")
     assert href.startswith("https://wordcloud.toolforge.org/"), href
     assert modal.locator(".jv-wacfg select").count() == 3 and modal.locator(".jv-wacfg input[type=range]").count() == 1   # style, colours, background, items: nothing more
@@ -538,5 +537,138 @@ def test_depicts_overview_modes_downloads_and_language(stack):
     modal = page.locator(".jv-modal").last
     svg = page.evaluate("() => DW.core.svgText(document.querySelector('svg.jv-wa'))")
     assert svg.startswith("<?xml") and "xmlns=" in svg
+    assert not problems, problems
+    ctx.close()
+
+
+def test_clear_options_sort_uploader_new_groups_time_words_and_calendar(stack):
+    ctx, page, problems = new_page(stack, logged_in=False)
+    page.goto(stack["base"] + "/")
+    load_category(page)
+    page.on("dialog", lambda d: d.accept())
+    # --- terminology and sort
+    opts = page.locator(".jv-tools select").filter(has_text="Photographed time").first.locator("option").all_inner_texts()
+    assert "Photographed time" in opts and "Uploaded time" in opts and "Uploader" in opts and not any("Observation" in o for o in opts), opts
+    # --- series groupings
+    grp = page.locator(".jv-tools select").filter(has_text="Grouped by Author")
+    gopts = grp.locator("option").all_inner_texts()
+    for want in ("Grouped by Date (photographed)", "Grouped by Uploaded date", "Grouped by Licence", "Grouped by Uploader"):
+        assert want in gopts, gopts
+    page.evaluate("() => { DW.core.S.recs.forEach(r => { r.license = 'CC BY-SA 4.0'; r.uploader = 'Anna'; r.dateObs = '2025:03:04 10:00:00'; }); }")
+    for v in ("license", "uploader", "date"):
+        grp.select_option(v)
+        assert page.locator(".jv-gcard").count() == 1, v
+    # --- batch Clear (pending edits only; nothing is saved)
+    grp.select_option("none")
+    page.keyboard.press("b")
+    page.evaluate("() => { const S = DW.core.S; S.recs.forEach(r => { r.depicts = [{ id: 'Q1', claim: 'c1' }]; r.cats = [{ n: 'Birds', hidden: false }]; r.lat = 10; r.lon = 76; S.sel.add(r.id); }); }")
+    page.get_by_role("button", name="Clear depicts").click()
+    page.get_by_role("button", name="Clear categories").click()
+    page.get_by_role("button", name="Clear location").click()
+    st = page.evaluate("() => DW.core.S.recs.map(r => [[...r.pend.remD], [...r.pend.remC], !!(r.pend.loc && r.pend.loc.clear)])")
+    assert all(x[0] == ["Q1"] and x[1] == ["Birds"] and x[2] for x in st), st
+    t = page.evaluate("() => DW.core.editText('a\\n{{Location|1|2}}\\n[[Category:Birds]]\\n', DW.core.S.recs[0].pend, DW.core.S.recs[0])")
+    assert "Location" not in t and "Category:Birds" not in t, t
+    page.evaluate("() => DW.core.S.recs.forEach(r => { r.pend = { addC: new Set(), remC: new Set(), addD: new Set(), remD: new Set(), loc: null }; })")
+    expect(page.get_by_role("button", name="Clear all (depicts, categories, location)")).to_be_visible()
+    # --- calendar
+    page.get_by_role("button", name="Calendar").click()
+    modal = page.locator(".jv-modal").last
+    day = modal.locator("button.d[title^='2025-03-04']")
+    assert "2 photo" in day.get_attribute("title") and "c0" not in day.get_attribute("class")
+    day.click(); modal.locator("button.d[title^='2025-03-05']").click()
+    expect(modal.locator(".jv-calinfo")).to_contain_text("2 photos")
+    modal.get_by_role("button", name="Show only this range").click()
+    assert page.evaluate("() => DW.core.S.fDate.from") == "2025-03-04"
+    assert page.locator(".jv-card").count() == 2
+    page.get_by_role("button", name="Calendar").click()
+    page.locator(".jv-modal").last.get_by_role("button", name="Show all dates").click()
+    assert page.evaluate("() => DW.core.S.fDate") is None
+    assert not problems, problems
+    ctx.close()
+
+
+def _shp_bytes(ring):
+    import struct
+    pts = ring
+    content = struct.pack("<i4d2i", 5, min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts), 1, len(pts)) + struct.pack("<i", 0) + b"".join(struct.pack("<2d", *p) for p in pts)
+    rec = struct.pack(">2i", 1, len(content) // 2) + content
+    head = struct.pack(">i5ii", 9994, 0, 0, 0, 0, 0, (100 + len(rec)) // 2) + struct.pack("<2i", 1000, 5) + struct.pack("<8d", 0, 0, 0, 0, 0, 0, 0, 0)
+    return head + rec
+
+
+def test_map_selects_photos_with_shapes_and_imports_shape_files(stack, tmp_path):
+    import io, json, zipfile
+    ctx, page, problems = new_page(stack, logged_in=False)
+    page.on("dialog", lambda d: d.accept())
+    page.goto(stack["base"] + "/")
+    load_category(page)
+    page.evaluate("() => { const R = DW.core.S.recs; R[0].lat = 10.0; R[0].lon = 76.0; R[1].lat = 11.0; R[1].lon = 77.0; }")
+    page.get_by_role("button", name="Map").click()
+    modal = page.locator(".jv-modal").last
+    expect(modal.locator(".jv-calinfo")).to_contain_text("2 photos on the map")
+    page.wait_for_function("() => document.querySelectorAll('.jv-gmap .jv-gp').length === 2")
+    # click a point selects its photo
+    cx, cy = page.evaluate("() => { const c = document.querySelector('.jv-gmap .jv-gp'); return [+c.getAttribute('cx'), +c.getAttribute('cy')]; }")
+    box = page.locator(".jv-gmap").bounding_box()
+    page.mouse.click(box["x"] + cx, box["y"] + cy)
+    assert page.evaluate("() => DW.core.S.sel.size") == 1
+    page.get_by_role("button", name="Unselect all").click()
+    box = page.locator(".jv-gmap").bounding_box()          # the photo strip moved the dialog
+    # rectangle around that point
+    modal.get_by_role("button", name="Rectangle").click()
+    page.mouse.move(box["x"] + cx - 25, box["y"] + cy - 25); page.mouse.down(); page.mouse.move(box["x"] + cx + 25, box["y"] + cy + 25, steps=4); page.mouse.up()
+    expect(modal.locator(".jv-calinfo")).to_contain_text("1 inside 1 shape")
+    modal.get_by_role("button", name="Select photos in shapes").click()
+    assert page.evaluate("() => DW.core.S.sel.size") == 1
+    # circle and free draw add shapes
+    modal.get_by_role("button", name="Circle").click()
+    box = page.locator(".jv-gmap").bounding_box()
+    page.mouse.move(box["x"] + 60, box["y"] + 60); page.mouse.down(); page.mouse.move(box["x"] + 90, box["y"] + 60, steps=3); page.mouse.up()
+    modal.get_by_role("button", name="Free draw").click()
+    page.mouse.move(box["x"] + 100, box["y"] + 300); page.mouse.down()
+    for x, y in [(160, 300), (160, 360), (100, 360)]:
+        page.mouse.move(box["x"] + x, box["y"] + y, steps=3)
+    page.mouse.up()
+    assert page.locator(".jv-gmap .jv-gsh").count() == 3
+    modal.get_by_role("button", name="Clear shapes").click()
+    assert page.locator(".jv-gmap .jv-gsh").count() == 0
+    # imported shape files: GeoJSON, .shp and a zipped .shp all select only the photo at 10, 76
+    ring = [(75.5, 9.5), (75.5, 10.5), (76.5, 10.5), (76.5, 9.5), (75.5, 9.5)]       # clockwise outline
+    gj = {"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {}, "geometry": {"type": "Polygon", "coordinates": [[list(p) for p in ring]]}}]}
+    shp = _shp_bytes(ring)
+    zb = io.BytesIO()
+    with zipfile.ZipFile(zb, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("area.shp", shp)
+    for name, mime, data in [("a.geojson", "application/json", json.dumps(gj).encode()), ("a.shp", "application/octet-stream", shp), ("a.zip", "application/zip", zb.getvalue())]:
+        modal.locator("input[type=file]").set_input_files(files=[{"name": name, "mimeType": mime, "buffer": data}])
+        expect(modal.locator(".jv-calinfo")).to_contain_text("1 inside 1 shape")
+        modal.get_by_role("button", name="Clear shapes").click()
+    # a file in another projection is refused with a message
+    bad = dict(gj); bad["features"] = [{"type": "Feature", "properties": {}, "geometry": {"type": "Polygon", "coordinates": [[[500000, 1000000], [500000, 1100000], [600000, 1100000], [500000, 1000000]]]}}]
+    modal.locator("input[type=file]").set_input_files(files=[{"name": "b.geojson", "mimeType": "application/json", "buffer": json.dumps(bad).encode()}])
+    assert page.locator(".jv-gmap .jv-gsh").count() == 0
+    # filter the grid by the imported area
+    modal.locator("input[type=file]").set_input_files(files=[{"name": "a.geojson", "mimeType": "application/json", "buffer": json.dumps(gj).encode()}])
+    modal.get_by_role("button", name="Show only these").click()
+    assert page.locator(".jv-card").count() == 1
+    assert not problems, problems
+    ctx.close()
+
+
+def test_custom_hashtag_is_typed_without_hash_or_spaces_and_ends_edit_summaries(stack):
+    ctx, page, problems = new_page(stack, logged_in=False)
+    page.goto(stack["base"] + "/")
+    load_category(page)
+    box = page.locator("input.jv-taginput")
+    box.click()
+    page.keyboard.type("#Theyyam Edit athon")
+    assert box.input_value() == "TheyyamEditathon"
+    tail = page.evaluate("() => DW.core.sumTail(DW.core.S.recs[0])")
+    assert tail.endswith("#DataWeaver #TheyyamEditathon"), tail
+    page.reload(); load_category(page)
+    assert page.locator("input.jv-taginput").input_value() == "TheyyamEditathon"      # remembered in this browser
+    box = page.locator("input.jv-taginput"); box.fill("")
+    assert page.evaluate("() => DW.core.sumTail(DW.core.S.recs[0])").endswith("#DataWeaver")
     assert not problems, problems
     ctx.close()

@@ -83,7 +83,7 @@ The buildpack installs `requirements.txt` and runs the `web` process from the `P
 Check it:
 
 ```bash
-curl -s https://dataweaver.toolforge.org/healthz        # {"status":"ok","version":"1.1.0"}
+curl -s https://dataweaver.toolforge.org/healthz        # {"status":"ok","version":"1.2.0"}
 ```
 
 Then open the site, press **Log in**, and save an edit on a file in your sandbox.
@@ -118,6 +118,7 @@ make dev                 # http://localhost:5000
 
 | Symptom | Likely cause |
 |---|---|
+| "Client … is not usable by user …" (other users cannot log in) | The consumer is owner-only or not yet approved. Propose a new consumer **without** the owner-only box, wait for approval at Special:OAuthManageConsumers, put the new `OAUTH_CLIENT_ID`/`OAUTH_CLIENT_SECRET` in `toolforge envvars`, restart. |
 | "Login is not configured" | `OAUTH_CLIENT_ID`/`OAUTH_CLIENT_SECRET` missing; `toolforge envvars list`, then restart. |
 | Wikimedia says "invalid redirect_uri" | `BASE_URL` or the registered callback differs; they must match exactly, including `https` and no trailing slash. |
 | "state mismatch" after login | Cookies blocked, or the login took longer than the session lifetime; try again. |

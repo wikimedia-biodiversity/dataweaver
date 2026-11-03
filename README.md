@@ -19,8 +19,10 @@ Load a Commons category, a list of file names or your own list page, review the 
 - **Location:** coordinates, map pin, Wikidata place search (OpenStreetMap search is opt-in); applied to many files at once.
 - **Series and Other versions:** group photos of the same subject (manual, or suggested by time or file name), warn when uploaders differ, tag a whole series in a collage, and list the photos in each other's Information template.
 - **One file at a time:** a single-screen view with image size and fit, captions (your interface language first), image notes, Personality rights (`P`), and a **Help needed** flag (`H`) that adds a project's help category to problematic files.
+- **Map and Calendar:** see the photos by place and select them by clicking points, drawing a rectangle, circle or free shape, or importing a GeoJSON, KML or shapefile area; a calendar shades every day by the number of photos (photographed or uploaded time) and selects a range of dates.
+- **Batch edit:** add or remove depicts and categories, set a location, star, group, and **clear** depicts, categories or location of the selected files; a **custom hashtag** (for example `TheyyamEditathon`) is added to every edit summary.
 - **Statistics:** contributors, sizes, upload activity, cameras, a clustered photo map and a contributions table, with PNG/SVG/CSV downloads for every chart. Open it with `?stats&category=Name`.
-- **Also:** stars (`Space`), select invert (`I`), sort and filter with live counts, depicts word cloud and frequency table, JSON/CSV export named after the category, edit log.
+- **Also:** stars (`Space`), select invert (`I`), sort (including file format, uploader, photographed and uploaded time) and filter with live counts; series grouped by author, date, licence or uploader, depicts overview (word cloud, bubbles or bars; more options in [WikiWordCloud](https://wordcloud.toolforge.org/)), JSON/CSV export named after the category, edit log.
 
 The full list is on the [Features page](https://dataweaver.toolforge.org/features) (source: [`templates/features.html`](templates/features.html)).
 
@@ -112,7 +114,7 @@ git remote add origin git@github.com:wikimedia-biodiversity/dataweaver.git
 git push -u origin main
 ```
 
-`.gitignore` already excludes `.env`, `var/` and session databases. Tag a release (`git tag v1.1.0`) to get a new Zenodo DOI version if the repository is linked to Zenodo.
+`.gitignore` already excludes `.env`, `var/` and session databases. Tag a release (`git tag v1.2.0`) to get a new Zenodo DOI version if the repository is linked to Zenodo.
 
 ## Contributing
 

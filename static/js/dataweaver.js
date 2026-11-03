@@ -5,7 +5,7 @@
  * DOI: 10.5281/zenodo.23680558
  * License: GPL-3.0-or-later (see LICENSE)
  *
- * Version 1.1.0. Started as the Commons Data Weaver user script and runs on the MediaWiki helpers
+ * Version 1.2.0. Started as the Commons Data Weaver user script and runs on the MediaWiki helpers
  * provided by static/js/dw-shim.js. From 1.1.0 this file is the source of truth: edit it directly
  * (tools/port_userscript.py only reproduces the 1.0.0 baseline and is no longer part of the workflow).
  */
@@ -72,11 +72,13 @@ function wdThumb(id, w, cls) {
 }
 const S = { recs: [], view: [], sel: new Set(), last: null, sort: 'name', dir: 1, groupStar: false,
   fText: '', fStar: false, fDep: 'all', bDep: [], bCat: [], cur: null, stars: new Set(), log: [], hideMap: false, annOn: false, activeNote: null, groups: {}, gmode: 'manual', gsec: 60, gMsg: null, project: '',
-  fLoc: 'all', fCat: 'all', fCam: 'all', hidCats: false, gAct: null };
+  fLoc: 'all', fCat: 'all', fCam: 'all', hidCats: false, gAct: null, fDate: null, fGeo: null };
 /* Projects and their "help needed" categories are maintained in static/config/projects.json (loaded below).
    These names are only the fallback if that file cannot be read. */
 let PROJ = [['Bioregister', ''], ['Folkland', ''], ['Heritage', ''], ['Wiki Village', 'WikiVillage']].map(a => ({ name: a[0], tag: a[1] || a[0], helpCategory: a[0] + ' (Maintenance)' }));
 const PROJ_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9 _-]{0,39}$/;
+const cleanTag = v => String(v || '').replace(/^[#\s]+/, '').replace(/[^\p{L}\p{N}\p{M}_-]/gu, '').slice(0, 40);
+S.hashtag = ''; try { S.hashtag = cleanTag(localStorage.getItem('dataweaver-hashtag')); } catch (e) {}
 try { let p = localStorage.getItem('dataweaver-project'); if (p === 'Wikivoyage') p = 'Wiki Village'; /* renamed in 1.1.0 */ if (PROJ_NAME_RE.test(p || '')) S.project = p; } catch (e) {}
 Object.assign(S, { imgSize: '1280', imgFit: 'fit', source: 'list', srcCat: '' });
 try {
@@ -220,7 +222,11 @@ const noteDirty = (r, n) => !JSON.parse(r.notesOrig || '[]').some(x => JSON.stri
 const pendCount = r => { const p = r.pend; return p.addC.size + p.remC.size + p.addD.size + p.remD.size + (p.loc ? 1 : 0) + capDiff(r).length + (notesDirty(r) ? 1 : 0) + (ovDirty(r) ? 1 : 0); };
 const effDepicts = r => r.depicts.map(d => d.id).filter(id => !r.pend.remD.has(id)).concat([...r.pend.addD]);
 const effCats = r => r.cats.filter(c => !r.pend.remC.has(c.n)).concat([...r.pend.addC].map(n => ({ n, hidden: false, added: true })));
-const effLoc = r => r.pend.loc || (r.lat != null ? { lat: r.lat, lon: r.lon } : null);
+const effLoc = r => r.pend.loc ? (r.pend.loc.clear ? null : r.pend.loc) : (r.lat != null ? { lat: r.lat, lon: r.lon } : null);
+const locClear = r => !!(r.pend.loc && r.pend.loc.clear);
+function clearDepicts(r) { effDepicts(r).forEach(id => removeDepicts(r, id)); }
+function clearCats(r) { visCats(r).forEach(c => removeCat(r, c.n)); }
+function clearLoc(r) { if (r.pend.loc && !r.pend.loc.clear) r.pend.loc = null; if (r.lat != null && !r.pend.loc) r.pend.loc = { clear: true }; }
 function addDepicts(r, id) { r.depicts.some(d => d.id === id) ? r.pend.remD.delete(id) : r.pend.addD.add(id); }
 function removeDepicts(r, id) { r.pend.addD.has(id) ? r.pend.addD.delete(id) : r.pend.remD.add(id); }
 function addCat(r, n) { n = normCat(n); r.cats.some(c => c.n === n) ? r.pend.remC.delete(n) : r.pend.addC.add(n); }
@@ -454,7 +460,7 @@ async function loadTitles(titles, source, isCategory, projMap) {
 /* ---------- grid ---------- */
 const SORT = {
   name: r => r.name.toLowerCase(), author: r => r.author.toLowerCase(), license: r => r.license.toLowerCase(),
-  format: r => (r.name.split('.').pop() || '').toLowerCase(), dateObs: r => r.dateObs, upload: r => r.upload, camera: r => r.camera.toLowerCase(),
+  format: r => (r.name.split('.').pop() || '').toLowerCase(), dateObs: r => r.dateObs, upload: r => r.upload, uploader: r => (r.uploader || '').toLowerCase(), camera: r => r.camera.toLowerCase(),
   resolution: r => r.w * r.h, size: r => r.bytes, starred: r => isStar(r) ? 1 : 0
 };
 const depFilter = r => {
@@ -465,10 +471,11 @@ const visCats = r => effCats(r).filter(c => S.hidCats || !c.hidden);
 const camFilter = r => S.fCam === 'all' || (S.fCam === 'missing' ? !r.camera : !!r.camera);
 const locFilter = r => S.fLoc === 'all' || (S.fLoc === 'missing' ? !effLoc(r) : !!effLoc(r));
 const catFilter = r => S.fCat === 'all' || (S.fCat === 'missing' ? !visCats(r).length : visCats(r).length > 0);
+const dateFilter = r => { const f = S.fDate; if (!f) return true; const d = dayOf(f.mode === 'upload' ? r.upload : r.dateObs); return !!d && d >= f.from && d <= f.to; };
 function getView() {
   const t = S.fText.toLowerCase(), f = SORT[S.sort];
   return S.recs.filter(r => (!t || (r.name + ' ' + r.author + ' ' + r.license + ' ' + r.camera + ' ' + Object.values(r.caps).join(' ')).toLowerCase().includes(t))
-    && (!S.fStar || (S.fStar === 'not' ? !isStar(r) : isStar(r))) && depFilter(r) && locFilter(r) && catFilter(r) && camFilter(r))
+    && (!S.fStar || (S.fStar === 'not' ? !isStar(r) : isStar(r))) && dateFilter(r) && (!S.fGeo || S.fGeo.has(r.id)) && depFilter(r) && locFilter(r) && catFilter(r) && camFilter(r))
     .sort((a, b) => { const x = f(a), y = f(b); return (x < y ? -1 : x > y ? 1 : 0) * S.dir; });
 }
 /* Thumbnails come from Wikimedia's thumbnail service, which makes a size when it is first asked for and can answer
@@ -518,7 +525,7 @@ function refreshCard(r) {
     ids.slice(0, 2).forEach(id => b.append(h('span', { class: 'dl ' + st(id) }, labelOf(id))));
     if (ids.length > 2) b.append(h('span', { class: 'ok' }, '+' + (ids.length - 2)));
   }
-  if (effLoc(r)) b.append(h('span', { class: r.pend.loc ? 'unsaved' : 'ok' }, '⌖'));
+  if (effLoc(r)) b.append(h('span', { class: r.pend.loc ? 'unsaved' : 'ok' }, '⌖')); else if (locClear(r)) b.append(h('span', { class: 'unsaved', title: 'Location will be removed' }, '⌖✕'));
   el.classList.toggle('dirty', pc > 0);
   if (pc) b.append(h('span', { class: 'pend' }, '● ' + pc));
   if (r.status === 'saved') b.append(h('span', { class: 'ok' }, 'saved'));
@@ -536,6 +543,7 @@ const ts = r => { const m = /(\d{4})[:\-](\d\d)[:\-](\d\d)[ T](\d\d):(\d\d):(\d\
 const stemOf = n => n.replace(/\.[^.]+$/, '').replace(/[\s_\-]*\(?\d+\)?\s*$/, '').trim().toLowerCase();
 const GENERIC = /^(img|dsc|dscn|dscf|dsf|pxl|mvimg|photo|image|picture|screenshot|file|untitled|[a-z]{0,3})$/;
 const repOf = g => g.members.find(r => r.isRep) || g.members[0];
+const dayOf = v => { const m = /(\d{4})[:\-](\d\d)[:\-](\d\d)/.exec(v || ''); return m ? m[1] + '-' + m[2] + '-' + m[3] : ''; };
 function buildGroups() {
   S.groups = {}; S.recs.forEach(r => { r.gid = null; });
   if (S.gmode === 'none') return; // Ungrouped: all files shown individually
@@ -559,6 +567,10 @@ function buildGroups() {
     });
   } else if (S.gmode === 'author') {
     const b = {}; free.forEach(r => { const k = (r.author || '').trim().toLowerCase(); if (!k) return; (b[k] = b[k] || []).push(r); });
+    Object.keys(b).forEach(k => mk('a' + b[k][0].id, b[k]));
+  } else if (S.gmode === 'date' || S.gmode === 'udate' || S.gmode === 'license' || S.gmode === 'uploader') {
+    const keyOf = r => S.gmode === 'date' ? dayOf(r.dateObs) : S.gmode === 'udate' ? dayOf(r.upload) : S.gmode === 'license' ? (r.license || '').trim().toLowerCase() : (r.uploader || '').trim().toLowerCase();
+    const b = {}; free.forEach(r => { const k = keyOf(r); if (!k) return; (b[k] = b[k] || []).push(r); });
     Object.keys(b).forEach(k => mk('a' + b[k][0].id, b[k]));
   } else if (S.gmode === 'name') {
     const b = {}; free.forEach(r => { const k = stemOf(r.name); if (k.length < 4 || GENERIC.test(k)) return; (b[k] = b[k] || []).push(r); });
@@ -828,6 +840,190 @@ function SlippyMap(el, o) {
     marker(m) { mk = m; render(); }, render
   };
 }
+
+/* ---------- Calendar: how many photos per day, shaded; pick a range of days ---------- */
+function calendarModal() {
+  const MN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  let mode = (S.fDate && S.fDate.mode) || 'obs', rng = S.fDate ? { a: S.fDate.from, b: S.fDate.to } : { a: '', b: '' }, year = 0;
+  const dayFor = r => dayOf(mode === 'upload' ? r.upload : r.dateObs);
+  const box = h('div', { class: 'jv-cal' }), info = h('div', { class: 'jv-calinfo' });
+  const sel = () => { const lo = rng.a && rng.b ? (rng.a < rng.b ? rng.a : rng.b) : rng.a, hi = rng.a && rng.b ? (rng.a < rng.b ? rng.b : rng.a) : rng.a; return { lo, hi }; };
+  const inRange = () => { const { lo, hi } = sel(); return lo ? S.recs.filter(r => { const d = dayFor(r); return d && d >= lo && d <= hi; }) : []; };
+  function draw() {
+    const cnt = {}; let none = 0; S.recs.forEach(r => { const d = dayFor(r); if (d) cnt[d] = (cnt[d] || 0) + 1; else none++; });
+    const years = [...new Set(Object.keys(cnt).map(d => +d.slice(0, 4)))].sort();
+    if (!year) { const per = {}; Object.keys(cnt).forEach(d => { per[d.slice(0, 4)] = (per[d.slice(0, 4)] || 0) + cnt[d]; }); year = +(Object.keys(per).sort((a, b) => per[b] - per[a])[0] || new Date().getFullYear()); }
+    const max = Math.max(1, ...Object.values(cnt)), lv = n => !n ? 0 : Math.min(4, 1 + Math.floor(3.999 * Math.log(n + 1) / Math.log(max + 1)));
+    const { lo, hi } = sel();
+    box.innerHTML = '';
+    const mSel = h('select', { onchange: e => { mode = e.target.value; rng = { a: '', b: '' }; year = 0; draw(); } }, h('option', { value: 'obs', selected: mode === 'obs' ? '' : null }, 'Photographed time'), h('option', { value: 'upload', selected: mode === 'upload' ? '' : null }, 'Uploaded time'));
+    const ySel = h('select', { onchange: e => { year = +e.target.value; draw(); } }, (years.includes(year) ? years : years.concat(year).sort()).map(y => h('option', { value: y, selected: y === year ? '' : null }, y)));
+    box.append(h('div', { class: 'jv-calbar' }, h('span', {}, 'Count by '), mSel,
+      h('button', { onclick: () => { year--; draw(); } }, '◀'), ySel, h('button', { onclick: () => { year++; draw(); } }, '▶'),
+      h('span', { class: 'jv-calleg' }, 'fewer ', [0, 1, 2, 3, 4].map(i => h('i', { class: 'c' + i })), ' more')));
+    const months = h('div', { class: 'jv-calgrid' });
+    for (let m = 0; m < 12; m++) {
+      const first = new Date(Date.UTC(year, m, 1)), days = new Date(Date.UTC(year, m + 1, 0)).getUTCDate(), off = (first.getUTCDay() + 6) % 7;
+      const pad = n => String(n).padStart(2, '0'), ms = year + '-' + pad(m + 1), mTotal = Object.keys(cnt).filter(d => d.startsWith(ms)).reduce((a, d) => a + cnt[d], 0);
+      const g = h('div', { class: 'jv-calm' }, h('b', { title: 'Select this whole month', onclick: () => { rng = { a: ms + '-01', b: ms + '-' + pad(days) }; draw(); } }, MN[m] + ' ', h('span', { class: 'jv-dim' }, mTotal || '')));
+      const row = h('div', { class: 'jv-calr' }); ['M', 'T', 'W', 'T', 'F', 'S', 'S'].forEach(x => row.append(h('u', {}, x))); for (let i = 0; i < off; i++) row.append(h('s', {}));
+      for (let d = 1; d <= days; d++) {
+        const key = ms + '-' + pad(d), n = cnt[key] || 0, on = lo && key >= lo && key <= hi;
+        row.append(h('button', { type: 'button', class: 'd c' + lv(n) + (on ? ' sel' : ''), title: key + ': ' + n + ' photo' + (n === 1 ? '' : 's'),
+          onclick: e => { if (e.shiftKey && rng.a && !rng.b) rng.b = key; else if (rng.a && !rng.b) rng.b = key; else rng = { a: key, b: '' }; draw(); } }, d));
+      }
+      g.append(row); months.append(g);
+    }
+    box.append(months);
+    const list = inRange(), tot = list.length;
+    info.textContent = ''; info.append(lo ? (hi === lo || !rng.b ? lo : lo + ' to ' + hi) + ': ' + tot + ' photo' + (tot === 1 ? '' : 's') + (rng.b ? '' : ' — click a second day to finish the range') : 'Click a day, then another day, to pick a range. Click a month name for the whole month.', none ? '  (' + none + ' file(s) without this date)' : '');
+  }
+  draw();
+  const actions = [
+    h('button', { onclick: () => { rng = { a: '', b: '' }; draw(); } }, 'Clear range'),
+    h('button', { title: 'Add the photos of this range to the selection', onclick: () => { const l = inRange(); if (!l.length) return; l.forEach(r => S.sel.add(r.id)); touch(l); renderGrid(); setStatus('Selected ' + l.length + ' photo(s) from the calendar range.'); } }, 'Select these photos'),
+    h('button', { class: 'jv-primary', title: 'Show only the photos of this range in the grid', onclick: () => { const { lo, hi } = sel(); if (!lo) return; S.fDate = { mode, from: lo, to: hi }; renderGrid(); setStatus('Showing ' + inRange().length + ' photo(s) from ' + lo + ' to ' + hi + '.'); m.remove(); } }, 'Show only this range'),
+    h('button', { onclick: () => { S.fDate = null; renderGrid(); setStatus('Date filter removed.'); m.remove(); } }, 'Show all dates')];
+  const m = modal('Calendar', h('div', { class: 'jv-modal-c' }, box, info), actions, true);
+}
+
+/* ---------- Map: explore the photos by place and select them with shapes ---------- */
+const geoDist = (a, b) => { const R = 6371000, p = Math.PI / 180, dLa = (b.lat - a.lat) * p, dLo = (b.lon - a.lon) * p, x = Math.sin(dLa / 2) ** 2 + Math.cos(a.lat * p) * Math.cos(b.lat * p) * Math.sin(dLo / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); };
+const inRing = (pt, ring) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const a = ring[i], b = ring[j]; if ((a.lat > pt.lat) !== (b.lat > pt.lat) && pt.lon < (b.lon - a.lon) * (pt.lat - a.lat) / (b.lat - a.lat) + a.lon) c = !c; } return c; };
+const inShape = (pt, sh) => sh.circle ? geoDist(pt, sh.circle) <= sh.circle.r : inRing(pt, sh.ring);
+const ringCw = r => { let s = 0; for (let i = 0; i < r.length; i++) { const a = r[i], b = r[(i + 1) % r.length]; s += (b.lon - a.lon) * (b.lat + a.lat); } return s > 0; };
+/* GeoJSON, KML, a .shp file, or a zip that contains one. Longitude/latitude (WGS84) only. Returns a list of rings. */
+async function readShapeFile(file) {
+  const nm = file.name.toLowerCase(), rings = [];
+  const ll = (x, y) => { if (!isFinite(x) || !isFinite(y) || Math.abs(x) > 180 || Math.abs(y) > 90) throw new Error('The coordinates are not longitude/latitude (WGS84, EPSG:4326). Export the layer again in WGS84.'); return { lat: y, lon: x }; };
+  const geo = g => {
+    if (!g) return;
+    if (g.type === 'Polygon') rings.push(g.coordinates[0].map(c => ll(c[0], c[1])));
+    else if (g.type === 'MultiPolygon') g.coordinates.forEach(p => rings.push(p[0].map(c => ll(c[0], c[1]))));
+    else if (g.type === 'GeometryCollection') g.geometries.forEach(geo);
+    else if (g.type === 'Feature') geo(g.geometry);
+    else if (g.type === 'FeatureCollection') g.features.forEach(geo);
+  };
+  const shp = buf => {
+    const v = new DataView(buf); if (v.getInt32(0) !== 9994) throw new Error('This is not a shapefile (.shp).');
+    const all = []; let p = 100;
+    while (p + 8 <= buf.byteLength) {
+      const s = p + 8, len = v.getInt32(p + 4) * 2; p = s + len; const t = v.getInt32(s, true); if (t !== 5 && t !== 15 && t !== 25) continue;
+      const np = v.getInt32(s + 36, true), pt = v.getInt32(s + 40, true), parts = [], pts = [], base = s + 44 + 4 * np;
+      for (let i = 0; i < np; i++) parts.push(v.getInt32(s + 44 + 4 * i, true));
+      for (let i = 0; i < pt; i++) pts.push(ll(v.getFloat64(base + 16 * i, true), v.getFloat64(base + 16 * i + 8, true)));
+      parts.forEach((a, i) => all.push(pts.slice(a, i + 1 < np ? parts[i + 1] : pt)));
+    }
+    const outer = all.filter(ringCw); (outer.length ? outer : all).forEach(r => rings.push(r));   // clockwise rings are outlines, the others are holes
+  };
+  if (/\.zip$/.test(nm)) {
+    const buf = await file.arrayBuffer(), v = new DataView(buf), u = new Uint8Array(buf); let e = u.length - 22; while (e >= 0 && v.getUint32(e, true) !== 0x06054b50) e--;
+    if (e < 0) throw new Error('This is not a zip file.');
+    let p = v.getUint32(e + 16, true), found = null;
+    for (let i = 0, n = v.getUint16(e + 10, true); i < n && v.getUint32(p, true) === 0x02014b50; i++) {
+      const meth = v.getUint16(p + 10, true), csz = v.getUint32(p + 20, true), nl = v.getUint16(p + 28, true), xl = v.getUint16(p + 30, true), cl = v.getUint16(p + 32, true), off = v.getUint32(p + 42, true), name = new TextDecoder().decode(u.subarray(p + 46, p + 46 + nl));
+      p += 46 + nl + xl + cl; if (!/\.shp$/i.test(name)) continue;
+      const st = off + 30 + v.getUint16(off + 26, true) + v.getUint16(off + 28, true), data = u.subarray(st, st + csz);
+      found = meth === 0 ? data.slice().buffer : meth === 8 ? await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer() : null; break;
+    }
+    if (!found) throw new Error('No readable .shp file in this zip.'); shp(found);
+  } else if (/\.shp$/.test(nm)) shp(await file.arrayBuffer());
+  else if (/\.kml$/.test(nm)) {
+    const d = new DOMParser().parseFromString(await file.text(), 'text/xml');
+    [...d.getElementsByTagName('Polygon')].forEach(pg => { const ob = pg.getElementsByTagName('outerBoundaryIs')[0], co = ob && ob.getElementsByTagName('coordinates')[0]; if (!co) return; rings.push(co.textContent.trim().split(/\s+/).map(t => t.split(',').map(Number)).filter(a => a.length >= 2).map(a => ll(a[0], a[1]))); });
+  } else { try { geo(JSON.parse(await file.text())); } catch (e) { if (e instanceof SyntaxError) throw new Error('Could not read this file. Use GeoJSON, KML, .shp or a zipped shapefile.'); throw e; } }
+  const ok = rings.filter(r => r.length >= 3); if (!ok.length) throw new Error('No polygons found in this file (points and lines cannot select photos).'); return ok;
+}
+function mapModal() {
+  const NS = 'http://www.w3.org/2000/svg', T = 256, CELL = 34;
+  const el = h('div', { class: 'jv-map jv-gmap' }), layer = h('div', { class: 'jv-map-l' }), svg = document.createElementNS(NS, 'svg'), info = h('div', { class: 'jv-calinfo' }), strip = h('div', { class: 'jv-mapstrip' }), note = h('div', { class: 'jv-dim' });
+  svg.setAttribute('class', 'jv-gsvg');
+  let z = 6, c = { lat: 10.5, lon: 76.5 }, tool = 'move', shapes = [], draft = null, hits = [], inSet = new Set();
+  const items = S.recs.map(r => ({ r, p: effLoc(r) })).filter(x => x.p), noLoc = S.recs.length - items.length;
+  const n = () => Math.pow(2, z), X = lon => (lon + 180) / 360 * n() * T, Y = lat => { const s = Math.sin(lat * Math.PI / 180); return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n() * T; };
+  const LON = x => x / (n() * T) * 360 - 180, LAT = y => { const a = Math.PI - 2 * Math.PI * y / (n() * T); return 180 / Math.PI * Math.atan(0.5 * (Math.exp(a) - Math.exp(-a))); };
+  const org = () => { const w = el.clientWidth || 600, hh = el.clientHeight || 400; return { w, hh, x0: X(c.lon) - w / 2, y0: Y(c.lat) - hh / 2 }; };
+  const toLL = e => { const b = el.getBoundingClientRect(), o = org(); return { lat: LAT(o.y0 + e.clientY - b.top), lon: LON(o.x0 + e.clientX - b.left) }; };
+  const mk = (tag, a) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); svg.append(e); return e; };
+  const recalc = () => { inSet = new Set(shapes.length ? items.filter(x => shapes.some(s => inShape(x.p, s))).map(x => x.r.id) : []); };
+  function fit() {
+    if (!items.length) return; const la = items.map(x => x.p.lat), lo = items.map(x => x.p.lon), o = org();
+    c = { lat: (Math.min(...la) + Math.max(...la)) / 2, lon: (Math.min(...lo) + Math.max(...lo)) / 2 };
+    for (z = 17; z > 2; z--) { if (Math.abs(X(Math.max(...lo)) - X(Math.min(...lo))) < o.w - 70 && Math.abs(Y(Math.min(...la)) - Y(Math.max(...la))) < o.hh - 70) break; }
+  }
+  function render() {
+    const { w, hh, x0, y0 } = org(), N = n(); layer.innerHTML = ''; svg.innerHTML = ''; hits = [];
+    for (let tx = Math.floor(x0 / T); tx <= Math.floor((x0 + w) / T); tx++) for (let ty = Math.floor(y0 / T); ty <= Math.floor((y0 + hh) / T); ty++) {
+      if (ty < 0 || ty >= N) continue; const im = h('img', { src: DW.tile(z, ((tx % N) + N) % N, ty), draggable: 'false', alt: '' }); im.style.cssText = 'left:' + Math.round(tx * T - x0) + 'px;top:' + Math.round(ty * T - y0) + 'px'; layer.append(im);
+    }
+    svg.setAttribute('viewBox', '0 0 ' + w + ' ' + hh);
+    const P = p => (X(p.lon) - x0).toFixed(1) + ',' + (Y(p.lat) - y0).toFixed(1), mpp = lat => 156543.03392 * Math.cos(lat * Math.PI / 180) / N;
+    const draw = (sh, cls) => { if (sh.circle) mk('circle', { class: cls, cx: X(sh.circle.lon) - x0, cy: Y(sh.circle.lat) - y0, r: Math.max(1, sh.circle.r / mpp(sh.circle.lat)) }); else mk('polygon', { class: cls, points: sh.ring.map(P).join(' ') }); };
+    shapes.forEach(s => draw(s, 'jv-gsh')); if (draft) draw(draft, 'jv-gsh draft');
+    const cl = {};
+    items.forEach(x => { const sx = X(x.p.lon) - x0, sy = Y(x.p.lat) - y0; if (sx < -30 || sy < -30 || sx > w + 30 || sy > hh + 30) return; const k = Math.floor(sx / CELL) + ':' + Math.floor(sy / CELL), g = cl[k] || (cl[k] = { sx: 0, sy: 0, list: [] }); g.sx += sx; g.sy += sy; g.list.push(x); });
+    Object.values(cl).forEach(g => {
+      const m = g.list.length, x = g.sx / m, y = g.sy / m, allSel = g.list.every(q => S.sel.has(q.r.id)), anySel = g.list.some(q => S.sel.has(q.r.id)), anyIn = g.list.some(q => inSet.has(q.r.id));
+      const rad = m === 1 ? 6 : Math.min(22, 8 + Math.sqrt(m) * 2.2);
+      mk('circle', { cx: x, cy: y, r: rad, class: 'jv-gp ' + (allSel ? 'sel' : anySel ? 'part' : anyIn ? 'in' : '') });
+      if (m > 1) { const t = mk('text', { x, y: y + 4, class: 'jv-gt' }); t.textContent = m; }
+      hits.push({ x, y, rad: Math.max(rad, 9), list: g.list });
+    });
+    const sel = items.filter(x => S.sel.has(x.r.id)).length;
+    info.textContent = items.length + ' photos on the map' + (noLoc ? ' (' + noLoc + ' without a location)' : '') + (shapes.length ? ' · ' + inSet.size + ' inside ' + shapes.length + ' shape' + (shapes.length === 1 ? '' : 's') : '') + ' · ' + sel + ' selected';
+    note.textContent = S.fGeo ? 'The grid shows only ' + S.fGeo.size + ' photo(s) from the map. Use “Show all places” to remove this.' : '';
+  }
+  const zoomAt = (d, at) => { const nz = Math.max(2, Math.min(18, z + d)); if (nz === z) return; if (at) { const b = el.getBoundingClientRect(), o = org(), ax = o.x0 + at.clientX - b.left, ay = o.y0 + at.clientY - b.top, p = { lon: LON(ax), lat: LAT(ay) }; z = nz; c = { lon: LON(X(p.lon) - (at.clientX - b.left) + b.width / 2), lat: LAT(Y(p.lat) - (at.clientY - b.top) + b.height / 2) }; } else z = nz; render(); };
+  el.append(layer, svg, h('div', { class: 'jv-map-c' }, h('button', { type: 'button', onclick: () => zoomAt(1) }, '+'), h('button', { type: 'button', onclick: () => zoomAt(-1) }, '−')));
+  let drag = null;
+  el.addEventListener('pointerdown', e => {
+    if (e.target.closest('.jv-map-c')) return; el.setPointerCapture(e.pointerId); const p = toLL(e); drag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, a: p };
+    if (tool === 'rect') draft = { ring: [p, p, p, p] }; else if (tool === 'circle') draft = { circle: { lat: p.lat, lon: p.lon, r: 0 } }; else if (tool === 'free') draft = { ring: [p] };
+  });
+  el.addEventListener('pointermove', e => {
+    if (!drag) return; const p = toLL(e);
+    if (tool === 'move') { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; c = { lon: LON(X(c.lon) - dx), lat: LAT(Y(c.lat) - dy) }; }
+    else if (tool === 'rect') { const a = drag.a; draft.ring = [a, { lat: a.lat, lon: p.lon }, p, { lat: p.lat, lon: a.lon }]; }
+    else if (tool === 'circle') draft.circle.r = geoDist(drag.a, p);
+    else if (tool === 'free') draft.ring.push(p);
+    render();
+  });
+  el.addEventListener('pointerup', e => {
+    if (!drag) return; const d = drag, moved = Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy); drag = null;
+    if (tool === 'move') {
+      if (moved >= 5) return; const b = el.getBoundingClientRect(), x = e.clientX - b.left, y = e.clientY - b.top, hit = hits.find(q => Math.hypot(q.x - x, q.y - y) <= q.rad); if (!hit) return;
+      const same = hit.list.every(q => q.p.lat === hit.list[0].p.lat && q.p.lon === hit.list[0].p.lon);
+      if (hit.list.length > 1 && !same && z < 17) { c = { lat: LAT(Y(c.lat) + y - b.height / 2), lon: LON(X(c.lon) + x - b.width / 2) }; zoomAt(2); return; }
+      const recs = hit.list.map(q => q.r), all = recs.every(r => S.sel.has(r.id)); recs.forEach(r => { all ? S.sel.delete(r.id) : S.sel.add(r.id); }); touch(recs); showStrip(recs); render(); return;
+    }
+    const sh = draft; draft = null;
+    if (sh && moved >= 6) { if (sh.ring && tool === 'free') { const keep = []; let last = null; sh.ring.forEach(p => { const px = [X(p.lon), Y(p.lat)]; if (!last || Math.hypot(px[0] - last[0], px[1] - last[1]) >= 3) { keep.push(p); last = px; } }); sh.ring = keep; } if (sh.circle ? sh.circle.r > 0 : sh.ring.length >= 3) shapes.push(sh); }
+    recalc(); render();
+  });
+  el.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.deltaY < 0 ? 1 : -1, e); }, { passive: false });
+  function showStrip(recs) {
+    strip.innerHTML = ''; recs.slice(0, 16).forEach(r => strip.append(h('img', { src: r.thumb, alt: r.name, title: r.name + (S.sel.has(r.id) ? ' (selected)' : ''), loading: 'lazy', referrerpolicy: 'no-referrer' })));
+    if (recs.length > 16) strip.append(h('span', { class: 'jv-dim' }, '+' + (recs.length - 16) + ' more'));
+  }
+  const tools = [['move', '✋ Move / click points'], ['rect', '▭ Rectangle'], ['circle', '◯ Circle'], ['free', '✎ Free draw']];
+  const bar = h('div', { class: 'jv-calbar' }), setTool = t => { tool = t; el.dataset.tool = t; [...bar.querySelectorAll('button.tl')].forEach(b => b.classList.toggle('on', b.dataset.t === t)); };
+  tools.forEach(t => bar.append(h('button', { type: 'button', class: 'tl' + (t[0] === 'move' ? ' on' : ''), 'data-t': t[0], onclick: () => setTool(t[0]) }, t[1])));
+  const fileIn = h('input', { type: 'file', accept: '.geojson,.json,.kml,.shp,.zip', hidden: '', onchange: async e => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    try { const rings = await readShapeFile(f); rings.forEach(r => shapes.push({ ring: r })); recalc(); const la = rings.flat().map(p => p.lat), lo = rings.flat().map(p => p.lon); c = { lat: (Math.min(...la) + Math.max(...la)) / 2, lon: (Math.min(...lo) + Math.max(...lo)) / 2 }; const o = org(); for (z = 17; z > 2; z--) if (Math.abs(X(Math.max(...lo)) - X(Math.min(...lo))) < o.w - 40 && Math.abs(Y(Math.min(...la)) - Y(Math.max(...la))) < o.hh - 40) break; render(); setStatus('Loaded ' + rings.length + ' shape(s) from ' + f.name + '.'); }
+    catch (err) { setStatus('Shape file: ' + (err.message || err)); alert('Shape file: ' + (err.message || err)); }
+  } });
+  bar.append(h('span', { style: 'flex:1' }), h('button', { type: 'button', title: 'GeoJSON, KML, .shp or a zipped shapefile (WGS84 polygons)', onclick: () => fileIn.click() }, '⬆ Import shape…'), fileIn,
+    h('button', { type: 'button', onclick: () => { shapes = []; recalc(); render(); } }, 'Clear shapes'), h('button', { type: 'button', onclick: () => { fit(); render(); } }, 'Fit to photos'));
+  const inside = () => items.filter(x => inSet.has(x.r.id)).map(x => x.r);
+  const actions = [
+    h('button', { onclick: () => { S.sel.clear(); touch(S.recs); renderGrid(); render(); } }, 'Unselect all'),
+    h('button', { title: 'Add the photos inside the shapes to the selection', onclick: () => { const l = inside(); if (!l.length) return setStatus('Draw or import a shape first.'); l.forEach(r => S.sel.add(r.id)); touch(l); renderGrid(); render(); setStatus('Selected ' + l.length + ' photo(s) from the map.'); } }, 'Select photos in shapes'),
+    h('button', { class: 'jv-primary', title: 'Show only the photos inside the shapes in the grid', onclick: () => { const l = inside(); if (!l.length) return setStatus('Draw or import a shape first.'); S.fGeo = new Set(l.map(r => r.id)); renderGrid(); setStatus('Showing ' + l.length + ' photo(s) from the map shapes.'); m.remove(); } }, 'Show only these'),
+    h('button', { onclick: () => { S.fGeo = null; renderGrid(); setStatus('Map filter removed.'); render(); } }, 'Show all places')];
+  const m = modal('Map', h('div', { class: 'jv-modal-c' }, bar, el, info, note, strip, h('small', { class: 'jv-dim' }, 'Click a point to select its photos; a cluster zooms in. Draw a rectangle, circle or free shape (shapes add up), or import a polygon file, then select or filter the photos inside. Map © OpenStreetMap contributors.')), actions, true);
+  setTimeout(() => { fit(); render(); }, 40);
+}
 function modal(title, body, buttons, wide) {
   const m = h('div', { class: 'jv-modal' }, h('div', { class: 'jv-modal-b' + (wide ? ' wide' : '') },
     h('div', { class: 'jv-modal-h' }, h('b', {}, title), h('button', { onclick: () => m.remove() }, '✕')), body,
@@ -909,7 +1105,7 @@ const DOI_URL = 'https://doi.org/10.5281/zenodo.23680558';
 const ME_URL = 'https://meta.wikimedia.org/wiki/User:Manojk';
 const LOGO = 'https://commons.wikimedia.org/wiki/Special:FilePath/DataWeaver.png?width=96';
 /* Edit summary tag (MediaWiki summaries are single-line) */
-const projTag = r => { const p = projCfg(r), n = projName(r); return n ? ' #' + ((p && p.tag) || n.replace(/[^A-Za-z0-9_-]/g, '')) : ''; };
+const projTag = r => { const p = projCfg(r), n = projName(r), a = n ? (p && p.tag) || n.replace(/[^A-Za-z0-9_-]/g, '') : '', x = S.hashtag && S.hashtag.toLowerCase() !== a.toLowerCase() && S.hashtag.toLowerCase() !== 'dataweaver' ? S.hashtag : ''; return (a ? ' #' + a : '') + (x ? ' #' + x : ''); };
 const sumTail = r => 'Metadata updated with Commons Data Weaver via #DataWeaver' + projTag(r);
 const plural = (n, w) => n + ' ' + w + (n > 1 ? 's' : '');
 function noteStats(r) {
@@ -924,7 +1120,7 @@ function wikitextSummary(r) {
   if (remC.length) parts.push('Removed ' + cl(remC));
   if (hc && p.addC.has(hc)) parts.push('Flagged as needing help (project ' + projName(r) + '): [[Category:' + hc + ']]');
   if (hc && p.remC.has(hc)) parts.push('Removed help-needed flag (project ' + projName(r) + '): [[Category:' + hc + ']]');
-  if (p.loc) parts.push((r.lat == null ? 'Added' : 'Updated') + ' Geolocation');
+  if (p.loc) parts.push(p.loc.clear ? 'Removed Geolocation' : (r.lat == null ? 'Added' : 'Updated') + ' Geolocation');
   if (notesDirty(r)) { const k = noteStats(r); if (k.add) parts.push('Added ' + plural(k.add, 'image note')); if (k.chg) parts.push('Updated ' + plural(k.chg, 'image note')); if (k.rem) parts.push('Removed ' + plural(k.rem, 'image note')); }
   if (ovDirty(r)) { const had = JSON.parse(r.ovOrig || '[]').length; parts.push(r.ov.length ? (had ? 'Updated Other Versions' : 'Added Other Versions') : 'Removed Other Versions'); }
   const tail = sumTail(r), max = Math.max(80, 480 - tail.length - 2); let t = parts.join(', '); if (t.length > max) t = t.slice(0, max) + '…';
@@ -949,7 +1145,8 @@ function editText(t, p, r) {
     if (add) t = t.replace(/\s*$/, '') + '\n' + add + '\n';
   }
   const lic = /^(==\s*\{\{\s*int:license-header\s*\}\}\s*==)/mi;
-  if (p.loc) {
+  if (p.loc && p.loc.clear) t = t.replace(/\{\{\s*(?:Location|Location dec|Object location|Object location dec)\s*\|[^{}]*\}\}[ \t]*\n?/gi, '');
+  else if (p.loc) {
     const tpl = '{{Location|' + p.loc.lat.toFixed(6) + '|' + p.loc.lon.toFixed(6) + '}}';
     const re = /\{\{\s*(?:Location|Location dec|Object location|Object location dec)\s*\|[^{}]*\}\}/i;
     if (re.test(t)) t = t.replace(re, () => tpl); else if (lic.test(t)) t = t.replace(lic, m => tpl + '\n\n' + m); else t = t.replace(/\s*$/, '') + '\n' + tpl + '\n';
@@ -982,7 +1179,7 @@ async function saveRec(r) {
       if (nt !== t) await post({ action: 'edit', pageid: r.id, text: nt, summary: wikitextSummary(r), nocreate: 1 }, r);
     }
     r.cats = r.cats.filter(c => !p.remC.has(c.n)).concat([...p.addC].map(n => ({ n, hidden: false })));
-    if (p.loc) { r.lat = p.loc.lat; r.lon = p.loc.lon; }
+    if (p.loc) { if (p.loc.clear) { r.lat = null; r.lon = null; } else { r.lat = p.loc.lat; r.lon = p.loc.lon; } }
     if (r.notes) r.notesOrig = JSON.stringify(r.notes);
     if (r.ov) r.ovOrig = JSON.stringify(r.ov);
     r.pend = newPend(); r.status = 'saved';
@@ -1004,7 +1201,7 @@ async function saveMany(list) {
 function confirmSave(list) {
   list = list.filter(r => pendCount(r));
   if (!list.length) return setStatus('No unsaved changes.');
-  const t = { addD: 0, remD: 0, cap: 0, addC: 0, remC: 0, loc: 0, notes: 0, ov: 0, edits: 0 };
+  const t = { addD: 0, remD: 0, cap: 0, addC: 0, remC: 0, loc: 0, locDel: 0, notes: 0, ov: 0, edits: 0 };
   const parts = r => {
     const p = r.pend, o = [];
     if (p.addD.size) o.push('+' + p.addD.size + ' depicts'); if (p.remD.size) o.push('−' + p.remD.size + ' depicts');
@@ -1016,11 +1213,11 @@ function confirmSave(list) {
   list.forEach(r => {
     const p = r.pend, cd = capDiff(r).length, wt = !!(p.addC.size || p.remC.size || p.loc || notesDirty(r) || ovDirty(r));
     t.addD += p.addD.size; t.remD += p.remD.size; t.cap += cd; t.addC += p.addC.size; t.remC += p.remC.size;
-    t.loc += p.loc ? 1 : 0; t.notes += notesDirty(r) ? 1 : 0; t.ov += ovDirty(r) ? 1 : 0;
+    t.loc += p.loc && !p.loc.clear ? 1 : 0; t.locDel += p.loc && p.loc.clear ? 1 : 0; t.notes += notesDirty(r) ? 1 : 0; t.ov += ovDirty(r) ? 1 : 0;
     t.edits += (p.addD.size || p.remD.size ? 1 : 0) + cd + (wt ? 1 : 0);
   });
   const rows = [['Depicts to add', t.addD], ['Depicts to remove', t.remD], ['Captions to change', t.cap], ['Categories to add', t.addC], ['Categories to remove', t.remC],
-    ['Locations to set', t.loc], ['Files with image notes', t.notes], ['Files with other versions', t.ov]].filter(x => x[1] > 0);
+    ['Locations to set', t.loc], ['Locations to remove', t.locDel], ['Files with image notes', t.notes], ['Files with other versions', t.ov]].filter(x => x[1] > 0);
   const m = modal('Save changes', h('div', { class: 'jv-modal-c' },
     h('div', {}, h('b', {}, list.length + ' file(s)'), ' with changes · about ' + t.edits + ' edit(s) on Commons'),
     h('table', { class: 'jv-meta' }, rows.map(x => h('tr', {}, h('th', {}, x[0]), h('td', {}, String(x[1]))))),
@@ -1037,7 +1234,7 @@ function exportList(scope) {
   const l = scope === 'selected' ? selected() : scope === 'starred' ? S.recs.filter(isStar) : scope === 'filtered' ? S.view : S.recs;
   return l.map(r => ({
     title: r.title, filename: r.name, page_url: r.url, file_url: r.full, author: r.author, license: r.license,
-    observation_date: r.dateObs, upload_date: r.upload, uploader: r.uploader, camera: r.camera, width: r.w, height: r.h,
+    photographed_time: r.dateObs, uploaded_time: r.upload, uploader: r.uploader, camera: r.camera, width: r.w, height: r.h,
     megapixels: +(r.w * r.h / 1e6).toFixed(2), size_bytes: r.bytes, mime: r.mime, latitude: effLoc(r) && effLoc(r).lat, longitude: effLoc(r) && effLoc(r).lon,
     starred: isStar(r), captions: Object.assign({}, r.caps), descriptions: r.descs, categories: effCats(r).map(c => c.n),
     depicts: effDepicts(r).map(id => ({ id, label: (WD[id] || {}).label || '' })), annotations: (r.notes || []).map(n => ({ id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, dimx: n.dimx, dimy: n.dimy, text: n.text })), series: r.gid || '', other_versions: (r.ov || []).map(o => ({ file: o.file, caption: o.cap })), unsaved_changes: pendCount(r)
@@ -1054,7 +1251,7 @@ function doExport(kind, scope) {
   const data = exportList(scope || 'all'); if (!data.length) return setStatus('Nothing to export for this scope.');
   const part = scope && scope !== 'all' ? scope : '';
   if (kind === 'json') return download(outName('json', part), 'application/json', JSON.stringify(data, null, 2));
-  const cols = ['title', 'filename', 'page_url', 'file_url', 'author', 'license', 'observation_date', 'upload_date', 'uploader', 'camera', 'width', 'height', 'megapixels', 'size_bytes', 'mime', 'latitude', 'longitude', 'starred', 'captions', 'descriptions', 'categories', 'depicts', 'series', 'other_versions', 'annotations', 'unsaved_changes'];
+  const cols = ['title', 'filename', 'page_url', 'file_url', 'author', 'license', 'photographed_time', 'uploaded_time', 'uploader', 'camera', 'width', 'height', 'megapixels', 'size_bytes', 'mime', 'latitude', 'longitude', 'starred', 'captions', 'descriptions', 'categories', 'depicts', 'series', 'other_versions', 'annotations', 'unsaved_changes'];
   const cell = (k, v) => {
     if (v == null) v = '';
     else if (k === 'captions' || k === 'descriptions') v = Object.keys(v).map(l => l + ': ' + v[l]).join(' | ');
@@ -1289,7 +1486,7 @@ function renderSingle(keepScroll) {
       sugg.length ? h('span', { class: 'jv-redlab' }, 'Suggested from Wikidata: ') : '', sugg.map(x => h('button', { class: 'jv-redsug', title: 'Add this category', onclick: () => { addCat(r, x.n); renderSingle(true); } }, '+ ' + x.n)),
       sugg.length > 1 ? h('button', { class: 'jv-redsug all', onclick: () => { sugg.forEach(x => addCat(r, x.n)); renderSingle(true); } }, 'Add all') : '') : '');
   const meta = h('table', { class: 'jv-meta' }, [
-    ['Author', r.author], ['Licence', r.license], ['Observation date', r.dateObs], ['Uploaded', r.upload.slice(0, 10) + (r.uploader ? ' by ' + r.uploader : '')],
+    ['Author', r.author], ['Licence', r.license], ['Photographed time', r.dateObs], ['Uploaded time', (r.upload || '').replace('T', ' ').replace('Z', '') + (r.uploader ? ' by ' + r.uploader : '')],
     ['Camera', r.camera], ['Dimensions', r.w + ' × ' + r.h + ' px (' + (r.w * r.h / 1e6).toFixed(1) + ' MP)'], ['File size', (r.bytes / 1048576).toFixed(2) + ' MB · ' + r.mime]
   ].map(x => h('tr', {}, h('th', {}, x[0]), h('td', {}, x[1] || '—'))));
   const right = h('div', { class: 'jv-cdr', 'data-sc': 'cdr' }, h('h4', {}, 'File details'), meta);
@@ -1300,9 +1497,9 @@ function renderSingle(keepScroll) {
   const loc = effLoc(r), mapEl = h('div', { class: 'jv-mapbox' });
   const locS = h('section', { class: 'jv-box jv-loc span2' }, h('div', { class: 'jv-row', style: 'margin:0 0 4px' }, h('h4', { style: 'flex:1;margin:0' }, 'Location' + (S.hideLoc ? (loc ? ' · ' + loc.lat.toFixed(4) + ', ' + loc.lon.toFixed(4) : ' · none') : '')),
       h('button', { title: 'Hide or show the location box (remembered)', onclick: () => { setUi({ hideLoc: !S.hideLoc }); renderSingle(true); } }, S.hideLoc ? '▸ Show location' : '▾ Hide location')),
-    S.hideLoc ? '' : h('div', { class: 'jv-row' }, h('span', { class: r.pend.loc ? 'jv-unsaved' : '' }, loc ? loc.lat.toFixed(5) + ', ' + loc.lon.toFixed(5) + (r.pend.loc ? ' (unsaved)' : '') : 'No location'),
+    S.hideLoc ? '' : h('div', { class: 'jv-row' }, h('span', { class: r.pend.loc ? 'jv-unsaved' : '' }, loc ? loc.lat.toFixed(5) + ', ' + loc.lon.toFixed(5) + (r.pend.loc ? ' (unsaved)' : '') : (locClear(r) ? 'Location will be removed (unsaved)' : 'No location')),
       h('button', { onclick: () => openMapPicker(loc, p => { r.pend.loc = p; renderSingle(true); }) }, loc ? 'Change on map / search' : 'Pin on map / search'),
-      r.pend.loc ? h('button', { onclick: () => { r.pend.loc = null; renderSingle(true); } }, 'Undo') : '', h('button', { onclick: () => { S.hideMap = !S.hideMap; renderSingle(true); } }, S.hideMap ? 'Show map' : 'Hide map')), S.hideLoc || S.hideMap ? '' : mapEl);
+      r.pend.loc ? h('button', { onclick: () => { r.pend.loc = null; renderSingle(true); } }, 'Undo') : '', loc && !r.pend.loc ? h('button', { title: 'Remove the location from this file (saved with Save)', onclick: () => { clearLoc(r); renderSingle(true); } }, 'Clear') : '', h('button', { onclick: () => { S.hideMap = !S.hideMap; renderSingle(true); } }, S.hideMap ? 'Show map' : 'Hide map')), S.hideLoc || S.hideMap ? '' : mapEl);
 
   // captions and descriptions: the interface language first, then English, then the rest
   const capBox = h('section', { class: 'jv-box', 'data-sc': 'cap' }, h('h4', {}, 'Captions (all languages)'));
@@ -1554,9 +1751,7 @@ async function depictsModal() {
   const more = h('div', { class: 'jv-wamore' },
     h('b', {}, 'More word-cloud options: '),
     catUrl ? h('a', { href: WWC_URL + '/studio?src=' + encodeURIComponent(catUrl), target: '_blank', rel: 'noopener' }, 'open this category in WikiWordCloud ↗') : h('a', { href: WWC_URL + '/', target: '_blank', rel: 'noopener' }, 'open WikiWordCloud ↗'),
-    ' (shapes, fonts for Indic scripts, editing words, many download formats). To use these depicts there, download the ', h('b', {}, 'CSV'), ' or ', h('b', {}, 'JSON'), ' here and choose ', h('i', {}, 'Open file'), ' in its Source tab. Inspired by ',
-    h('a', { href: 'https://github.com/nethahussain/vaakkumegham', target: '_blank', rel: 'noopener' }, 'Vaakkumegham'), ' (Netha Hussain) and NScience ',
-    h('a', { href: 'https://www.nscience.in/p/word-cloud-generator.html', target: '_blank', rel: 'noopener' }, 'Vaakkuttam'), ' (Navaneeth Krishnan S).');
+    ' (shapes, fonts for Indic scripts, editing words, many download formats). To use these depicts there, download the ', h('b', {}, 'CSV'), ' or ', h('b', {}, 'JSON'), ' here and choose ', h('i', {}, 'Open file'), ' in its Source tab.');
   const cfg = h('div', { class: 'jv-wacfg' },
     h('label', {}, 'Style ', sel('mode', [['cloud', 'Word cloud'], ['bubbles', 'Bubbles'], ['bars', 'Bars']])), h('label', {}, 'Colours ', schemeSel), h('label', {}, 'Background ', bgSel),
     h('label', { class: 'jv-rng' }, h('span', {}, 'Items'), maxIn, mv), chk('unsaved', 'Unsaved in red'), h('button', { title: 'Place the words differently', onclick: () => { o.seed = (o.seed || 1) + 1; saveO(); draw(); } }, '⟳ New layout'), more);
@@ -1593,6 +1788,12 @@ const projSel = h('select', { class: 'jv-projsel' + (S.project ? ' on' : ''), ti
   setStatus(S.project ? 'Project ' + S.project + ': edit summaries will end with #DataWeaver' + projTag() + '.' + (helpCat() ? ' Help needed adds Category:' + helpCat() + '.' : ' No help category is set for it yet.') : 'Default project: edit summaries use only #DataWeaver.');
   applyProject();
 } });
+const tagIn = h('input', { type: 'text', class: 'jv-taginput', placeholder: 'Hashtag', maxlength: 40, autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Custom hashtag for edit summaries',
+  title: 'Custom hashtag added to every edit summary, for example TheyyamEditathon. Type it without # and without spaces.',
+  oninput: e => { const v = cleanTag(e.target.value); if (v !== e.target.value) e.target.value = v; S.hashtag = v; try { localStorage.setItem('dataweaver-hashtag', v); } catch (x) {} e.target.classList.toggle('on', !!v); },
+  onkeydown: e => { if (e.key === ' ' || e.key === '#') e.preventDefault(); },
+  onchange: () => { setStatus(S.hashtag ? 'Edit summaries will end with #DataWeaver' + projTag() + '.' : 'No custom hashtag.'); S.recs.forEach(refreshCard); } });
+tagIn.value = S.hashtag; tagIn.classList.toggle('on', !!S.hashtag);
 function applyProject() {
   root.classList.toggle('has-proj', !!S.project || S.recs.some(x => x.proj));
   S.recs.forEach(refreshCard); updateStats();
@@ -1612,11 +1813,13 @@ fetch('/static/config/projects.json', { cache: 'no-cache' }).then(r => r.ok ? r.
 const top = h('div', { class: 'jv-top' },
   h('div', { class: 'jv-brandw', title: 'Commons Data Weaver' }, h('img', { class: 'jv-logo', src: LOGO, alt: 'Data Weaver logo' }),
     h('b', { class: 'jv-brand' }, 'Commons', h('br'), 'Data Weaver')),
-  projSel,
+  projSel, tagIn,
   catIn,
   h('button', { class: 'jv-primary', onclick: async () => { if (!catIn.value.trim()) return; try { const c = normCat(catIn.value); await loadTitles(await listCategory(c), c, true); } catch (e) { setStatus('Error: ' + e); } } }, 'Load category'),
   h('button', { onclick: csvModal }, 'CSV / list…'),
   h('button', { onclick: loadMyList, title: MYLIST ? 'Load the file list from ' + MYLIST : 'Log in to use your file list' }, 'My list'), h('span', { style: 'flex:1' }),
+  h('button', { onclick: mapModal, title: 'See the photos on a map; select them with points, a rectangle, circle, free shape or an imported shape file' }, '🗺 Map'),
+  h('button', { onclick: calendarModal, title: 'Photos per day, shaded by count; pick a range of dates' }, '📅 Calendar'),
   h('button', { onclick: () => (window.DW && DW.stats ? DW.stats.open() : setStatus('Statistics are not available.')), title: 'Contributors, sizes, upload activity, cameras and a map of the loaded files' }, '▤ Statistics'),
   h('button', { onclick: depictsModal, title: 'Word cloud and frequency of tagged depicts' }, '◈ Depicts overview'),
   h('button', { class: 'jv-primary', onclick: () => confirmSave(S.recs) }, 'Save all changes'));
@@ -1625,7 +1828,7 @@ const starSel = mkSel([['off', '★ Stars: all files'], ['group', '★ Starred f
 starSel.title = 'Show all files, starred files first, only starred files, or only files that are not starred';
 const secBox = h('span', { style: 'display:none', title: 'Max seconds between shots (Auto by time)' },
   h('input', { type: 'number', min: '1', value: '60', style: 'width:56px', onchange: e => { S.gsec = Math.max(1, +e.target.value || 60); renderGrid(); } }), ' s');
-const serSel = mkSel([['manual', 'Grouped (Manual)'], ['none', 'Ungrouped (All files)'], ['time', 'Auto by time'], ['name', 'Auto by file name'], ['author', 'Grouped by Author']], 'manual', v => { S.gmode = v; secBox.style.display = v === 'time' ? '' : 'none'; renderGrid(); });
+const serSel = mkSel([['manual', 'Grouped (Manual)'], ['none', 'Ungrouped (All files)'], ['time', 'Auto by time'], ['name', 'Auto by file name'], ['author', 'Grouped by Author'], ['date', 'Grouped by Date (photographed)'], ['udate', 'Grouped by Uploaded date'], ['license', 'Grouped by Licence'], ['uploader', 'Grouped by Uploader']], 'manual', v => { S.gmode = v; secBox.style.display = v === 'time' ? '' : 'none'; renderGrid(); });
 const dlSel = h('select', { title: 'Download the file data', onchange: e => { const v = e.target.value; e.target.value = ''; if (v) { const k = v.split(':'); doExport(k[0], k[1]); } } },
   h('option', { value: '' }, '⬇ Download'),
   ['json', 'csv'].map(k => h('optgroup', { label: k.toUpperCase() }, [['all', 'All files'], ['filtered', 'Filtered'], ['selected', 'Selected'], ['starred', 'Starred']].map(x => h('option', { value: k + ':' + x[0] }, k.toUpperCase() + ' · ' + x[1])))));
@@ -1639,7 +1842,7 @@ const selInvert = () => { S.view.forEach(r => S.sel.has(r.id) ? S.sel.delete(r.i
 const tools = h('div', { class: 'jv-tools' }, toggle,
   h('span', { class: 'jv-selg' }, 'Select', h('button', { onclick: selAll, title: 'Select all shown files (A)' }, 'All'), h('button', { onclick: selNone, title: 'Clear the selection (Esc)' }, 'None'),
     h('button', { onclick: selInvert, title: 'Select what is not selected, among the shown files (I)' }, 'Invert')),
-  h('span', {}, 'Sort'), mkSel([['name', 'Filename'], ['author', 'Author'], ['license', 'Licence'], ['dateObs', 'Observation date'], ['upload', 'Upload date'], ['camera', 'Camera'], ['format', 'File format'], ['resolution', 'Resolution'], ['size', 'File size'], ['starred', 'Starred']], 'name', v => { S.sort = v; renderGrid(); }),
+  h('span', {}, 'Sort'), mkSel([['name', 'Filename'], ['author', 'Author'], ['license', 'Licence'], ['dateObs', 'Photographed time'], ['upload', 'Uploaded time'], ['uploader', 'Uploader'], ['camera', 'Camera'], ['format', 'File format'], ['resolution', 'Resolution'], ['size', 'File size'], ['starred', 'Starred']], 'name', v => { S.sort = v; renderGrid(); }),
   mkSel([['1', '↑ Asc'], ['-1', '↓ Desc']], '1', v => { S.dir = +v; renderGrid(); }),
   starSel, h('span', {}, 'Filter'), depSel, h('span', {}, 'Series'), serSel, secBox,
   h('input', { type: 'search', placeholder: 'Filter…', oninput: e => { S.fText = e.target.value; renderGrid(); } }), h('span', { style: 'flex:1' }),
@@ -1681,28 +1884,33 @@ const panel = h('aside', { class: 'jv-panel' }, h('div', { class: 'jv-pbody' },
     h('button', { onclick: () => { const l = need(); l.forEach(r => { if (isStar(r)) toggleStar(r); }); } }, '☆ Unstar'),
     h('button', { onclick: groupSelected, title: 'Group the selected photos as one series (G)' }, '▣ Group (G)'),
     h('button', { onclick: ungroupSelected, title: 'Remove the selected photos from their series (U)' }, '▢ Ungroup (U)')),
+  h('div', { class: 'jv-btns' },
+    h('button', { class: 'jv-danger', title: 'Remove ALL depicts, categories and the location from the selected files (saved only when you press Save)', onclick: () => { const l = need(); if (!l.length) return; if (!confirm('Clear depicts, categories and location of ' + l.length + ' selected file(s)?\nNothing is saved until you press Save.')) return; l.forEach(r => { clearDepicts(r); clearCats(r); clearLoc(r); }); touch(l); setStatus('Cleared depicts, categories and location of ' + l.length + ' file(s) — not saved yet.'); } }, '✕ Clear all (depicts, categories, location)')),
   h('h4', {}, 'Depicts (P180)'),
   sugInput('Search Wikidata item…', fWD, it => { if (!S.bDep.some(d => d.id === it.id)) S.bDep.push({ id: it.id, label: it.label }); renderBatch(); }), bDepL,
   h('div', { class: 'jv-btns' },
     h('button', { class: 'jv-primary', onclick: () => { const l = need(); l.forEach(r => S.bDep.forEach(d => addDepicts(r, d.id))); touch(l); setStatus('Depicts added to ' + l.length + ' file(s) — not saved yet.'); } }, 'Add to selected'),
-    h('button', { onclick: () => { const l = need(); l.forEach(r => S.bDep.forEach(d => removeDepicts(r, d.id))); touch(l); } }, 'Remove')),
+    h('button', { onclick: () => { const l = need(); l.forEach(r => S.bDep.forEach(d => removeDepicts(r, d.id))); touch(l); } }, 'Remove'),
+    h('button', { class: 'jv-danger', title: 'Remove every depicts statement from the selected files', onclick: () => { const l = need(); if (!l.length || !confirm('Clear ALL depicts of ' + l.length + ' selected file(s)?')) return; l.forEach(clearDepicts); touch(l); setStatus('Depicts cleared on ' + l.length + ' file(s) — not saved yet.'); } }, 'Clear depicts')),
   h('h4', {}, 'Categories'),
   sugInput('Search Commons category…', fCat, it => { if (!S.bCat.includes(it.label)) S.bCat.push(it.label); if (it.free) warnCat(it.label); renderBatch(); }, { free: true }), bCatL,
   h('div', { class: 'jv-btns' },
     h('button', { class: 'jv-primary', onclick: () => { const l = need(); l.forEach(r => S.bCat.forEach(c => addCat(r, c))); touch(l); setStatus('Categories added to ' + l.length + ' file(s) — not saved yet.'); } }, 'Add to selected'),
-    h('button', { onclick: () => { const l = need(); l.forEach(r => S.bCat.forEach(c => removeCat(r, normCat(c)))); touch(l); } }, 'Remove')),
+    h('button', { onclick: () => { const l = need(); l.forEach(r => S.bCat.forEach(c => removeCat(r, normCat(c)))); touch(l); } }, 'Remove'),
+    h('button', { class: 'jv-danger', title: 'Remove every visible category from the selected files', onclick: () => { const l = need(); if (!l.length || !confirm('Clear ALL categories of ' + l.length + ' selected file(s)?')) return; l.forEach(clearCats); touch(l); setStatus('Categories cleared on ' + l.length + ' file(s) — not saved yet.'); } }, 'Clear categories')),
   h('h4', {}, 'Location'),
   h('div', { class: 'jv-row' }, bLat, bLon),
   h('div', { class: 'jv-btns' },
     h('button', { onclick: () => { const a = parseFloat(bLat.value), b = parseFloat(bLon.value); openMapPicker(isNaN(a) || isNaN(b) ? null : { lat: a, lon: b }, p => { bLat.value = p.lat.toFixed(6); bLon.value = p.lon.toFixed(6); }); } }, 'Pin / search on map'),
-    h('button', { class: 'jv-primary', onclick: () => { const a = parseFloat(bLat.value), b = parseFloat(bLon.value); if (isNaN(a) || isNaN(b)) return setStatus('Enter or pick a location first.'); const l = need(); l.forEach(r => { r.pend.loc = { lat: a, lon: b }; }); touch(l); } }, 'Apply to selected')),
+    h('button', { class: 'jv-primary', onclick: () => { const a = parseFloat(bLat.value), b = parseFloat(bLon.value); if (isNaN(a) || isNaN(b)) return setStatus('Enter or pick a location first.'); const l = need(); l.forEach(r => { r.pend.loc = { lat: a, lon: b }; }); touch(l); } }, 'Apply to selected'),
+    h('button', { class: 'jv-danger', title: 'Remove the location from the selected files', onclick: () => { const l = need(); if (!l.length || !confirm('Remove the location of ' + l.length + ' selected file(s)?')) return; l.forEach(clearLoc); touch(l); setStatus('Location cleared on ' + l.length + ' file(s) — not saved yet.'); } }, 'Clear location')),
   h('h4', {}, 'Save'),
   h('div', { class: 'jv-btns' },
     h('button', { class: 'jv-primary', onclick: () => { const l = need(); if (l.length) saveMany(l); } }, 'Save selected'),
     h('button', { class: 'jv-primary', onclick: () => confirmSave(S.recs) }, 'Save all changes'))), logWrap);
 const main = h('div', { class: 'jv-main collapsed' }, panel, h('div', { class: 'jv-gridwrap' }, grid));
 root.append(top, tools, main, h('div', { class: 'jv-status' }, statusMsg, bar, stats),
-  h('div', { class: 'jv-credit' }, h('span', {}, '© Commons Data Weaver, 2026 · ', h('b', {}, 'v' + ((window.DW && DW.config && DW.config.version) || '1.1.0')), ' · ', h('a', { href: DOI_URL, target: '_blank', rel: 'noopener', title: 'Cite this tool' }, 'DOI')),
+  h('div', { class: 'jv-credit' }, h('span', {}, '© Commons Data Weaver, 2026 · ', h('b', {}, 'v' + ((window.DW && DW.config && DW.config.version) || '1.2.0')), ' · ', h('a', { href: DOI_URL, target: '_blank', rel: 'noopener', title: 'Cite this tool' }, 'DOI')),
     h('span', {}, 'built and maintained by ', h('a', { href: ME_URL, target: '_blank' }, 'Manoj Karingamadathil'), ', Wikimedia Biodiversity Taskforce, Sahya Digital Conservation Foundation')));
 document.body.append(root);
 { const gear = document.getElementById('dw-gear'); gear && gear.parentNode ? gear.before(keysBtn) : tools.insertBefore(keysBtn, tools.lastChild); }   // Keys sits beside the gear
@@ -1885,6 +2093,16 @@ mw.util.addCSS(`
 .jv-wacfg{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-top:10px;padding:8px;background:#f4f7f5;border:1px solid #cdd8d2;border-radius:4px;font-size:13px}
 .jv-wacfg .jv-rng{display:flex;gap:6px;align-items:center}.jv-wacfg .jv-rng b{min-width:30px;color:#0b5c44}.jv-wamore{flex-basis:100%;font-size:12.5px;color:#3d5148;line-height:1.5}
 .jv-wacfg select,.jv-dlsel{font:inherit;padding:2px 4px;border:1px solid #b7c5bd;border-radius:3px}.jv-inl{display:inline-flex;gap:3px;align-items:center}.jv-wacfg input[type=color]{width:28px;height:24px;padding:0;border:1px solid #b7c5bd;vertical-align:middle}
+.jv-taginput{width:118px;font:inherit;padding:3px 6px;border:1px solid #b7c5bd;border-radius:3px}.jv-taginput.on{border-color:#0b5c44;background:#eaf6f0}
+.jv-danger{color:#b42318;border-color:#e3a8a2}#jv-root button.jv-danger:hover{background:#fdecea}
+.jv-calbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}.jv-calleg{margin-left:auto;display:inline-flex;gap:3px;align-items:center;font-size:12px;color:#5a6b63}.jv-calleg i{width:14px;height:14px;border-radius:3px;display:inline-block}
+.jv-calgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}.jv-calm>b{display:block;margin-bottom:4px;cursor:pointer}.jv-calr{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}.jv-calr u{text-decoration:none;font-size:10px;color:#6a7a73;text-align:center}
+#jv-root .jv-calr button.d,.jv-calr button.d{aspect-ratio:1;padding:0;font-size:10.5px;border:1px solid transparent;border-radius:3px;cursor:pointer;color:#1c2b24}.c0{background:#eef2f0}.c1{background:#cfe9d9}.c2{background:#8fd0a8}.c3{background:#3fa56d;color:#fff}.c4{background:#0b5c44;color:#fff}
+.jv-calr button.d.c3,.jv-calr button.d.c4{color:#fff}.jv-calr button.d.sel{outline:2px solid #d9480f;outline-offset:-1px;font-weight:700}.jv-calinfo{margin-top:10px;font-weight:600}
+.jv-gmap{height:430px;cursor:grab}.jv-gmap[data-tool=rect],.jv-gmap[data-tool=circle],.jv-gmap[data-tool=free]{cursor:crosshair}.jv-gsvg{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:2}
+.jv-gsvg .jv-gsh{fill:rgba(232,89,12,.16);stroke:#e8590c;stroke-width:2;stroke-dasharray:6 3}.jv-gsvg .draft{fill:rgba(26,115,232,.12);stroke:#1a73e8}
+.jv-gsvg .jv-gp{fill:#1a8f5b;fill-opacity:.85;stroke:#fff;stroke-width:1.5}.jv-gsvg .jv-gp.in{fill:#e8590c}.jv-gsvg .jv-gp.part{fill:#7aa7f0;stroke:#1a73e8}.jv-gsvg .jv-gp.sel{fill:#1a73e8}.jv-gsvg .jv-gt{fill:#fff;font:700 11px sans-serif;text-anchor:middle;pointer-events:none}
+#jv-root .jv-calbar button.tl.on{background:#0b5c44;color:#fff;border-color:#0b5c44}.jv-mapstrip{min-height:58px;display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}.jv-mapstrip img{height:54px;border-radius:3px}
 .jv-dlist{flex:1;min-width:280px;max-height:460px;overflow:auto}
 .jv-ft{width:100%;border-collapse:collapse;font-size:13px}.jv-ft th{text-align:left;color:#5d7068;font-weight:500;border-bottom:1px solid #cdd8d2;padding:3px 4px}.jv-ft td{padding:3px 4px;border-bottom:1px solid #edf1ee;vertical-align:middle}
 .jv-ft td:last-child{display:flex;gap:6px;align-items:center}.jv-ft button{padding:0 6px!important}
@@ -1980,7 +2198,7 @@ function open() {
 }
 /* The web app is always open: there is no Tools-menu link or overlay toggle. */
 window.DW = window.DW || {};
-DW.core = {authVals, replaceAuthor, waSvg, svgText, parseListProjects, sumTail, helpCat, projName,  S, h, api, wd, root, WD, labelOf, ensureWd, normCat, effLoc, effDepicts, download, outName, safeName, stampNow, setStatus, openSingle, loadTitles, listCategory };
+DW.core = {editText, authVals, replaceAuthor, waSvg, svgText, parseListProjects, sumTail, helpCat, projName,  S, h, api, wd, root, WD, labelOf, ensureWd, normCat, effLoc, effDepicts, download, outName, safeName, stampNow, setStatus, openSingle, loadTitles, listCategory };
 document.dispatchEvent(new CustomEvent('dw:core'));
 open();
 
